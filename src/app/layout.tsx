@@ -17,7 +17,7 @@ export default function RootLayout({
       <body>
         <Sidebar />
         <main className="min-h-screen pt-12">
-          <div className="p-4 md:p-8 max-w-7xl mx-auto">
+          <div className="px-6 md:px-16 py-4 md:py-8 max-w-7xl mx-auto">
             {children}
           </div>
         </main>

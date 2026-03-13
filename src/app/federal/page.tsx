@@ -49,7 +49,7 @@ export default function FederalPage() {
   };
 
   return (
-    <div className="pt-2 md:pt-0">
+    <div className="pt-4 md:pt-2">
       <PageHeader title="Federal Intelligence" subtitle="SAM.gov opportunities and USAspending contract awards" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

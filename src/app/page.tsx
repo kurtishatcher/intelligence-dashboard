@@ -34,7 +34,7 @@ export default async function OverviewPage() {
     : null;
 
   return (
-    <div className="pt-2 md:pt-0">
+    <div className="pt-4 md:pt-2">
       <PageHeader
         title="Intelligence Overview"
         subtitle={`Last updated: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`}
@@ -76,7 +76,11 @@ export default async function OverviewPage() {
             {highFitOpps.slice(0, 5).map((opp) => (
               <div key={opp.id} className="flex items-start justify-between gap-3 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{opp.title}</p>
+                  {opp.source_url ? (
+                    <a href={opp.source_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium truncate block hover:underline" style={{ color: 'var(--navy)' }}>{opp.title}</a>
+                  ) : (
+                    <p className="text-sm font-medium truncate">{opp.title}</p>
+                  )}
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                     {opp.agency} &middot; ${((opp.estimated_value || 0) / 1000000).toFixed(1)}M
                   </p>
@@ -98,9 +102,16 @@ export default async function OverviewPage() {
               <div key={intel.id} className="flex items-start justify-between gap-3 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{intel.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                    {(intel.competitors as { name: string } | null)?.name} &middot; {intel.published_at ? new Date(intel.published_at).toLocaleDateString() : 'N/A'}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      {(intel.competitors as { name: string } | null)?.name} &middot; {intel.published_at ? new Date(intel.published_at).toLocaleDateString() : 'N/A'}
+                    </p>
+                    {intel.source_url && (
+                      <a href={intel.source_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium" style={{ color: 'var(--accent-blue)' }}>
+                        Source →
+                      </a>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <StatusBadge status={intel.type} />
