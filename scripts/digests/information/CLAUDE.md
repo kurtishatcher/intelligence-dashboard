@@ -20,7 +20,7 @@
 - Single API call: all articles analyzed in one prompt to minimize cost
 
 ## Environment
-- Repo: `~/Desktop/_Claude_AI_docs/_Projects/AI_Product_Development/Building Your Virtual Team of 50/05 Information Digest/`
+- Repo: `~/intelligence-dashboard/scripts/digests/information/`
 - Run: `python morning_digest.py` (or `--preview` for no email)
 - launchd: `com.hatchingsolutions.information-digest` (plist in `~/Library/LaunchAgents/`)
 - Dependencies: `pip install -r requirements.txt`
