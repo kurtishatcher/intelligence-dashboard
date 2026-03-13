@@ -126,7 +126,11 @@ export default function FederalPage() {
                   {filtered.map((opp) => (
                     <tr key={opp.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
                       <td className="px-4 py-3">
-                        <p className="font-medium truncate max-w-xs">{opp.title}</p>
+                        {opp.source_url ? (
+                          <a href={opp.source_url} target="_blank" rel="noopener noreferrer" className="font-medium truncate max-w-xs block hover:underline" style={{ color: 'var(--navy)' }}>{opp.title}</a>
+                        ) : (
+                          <p className="font-medium truncate max-w-xs">{opp.title}</p>
+                        )}
                         <div className="flex gap-2 mt-1">
                           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{opp.naics_code}</span>
                           {opp.set_aside && opp.set_aside !== 'Unrestricted' && (
@@ -185,7 +189,11 @@ export default function FederalPage() {
                 {awards.map((award) => (
                   <tr key={award.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
                     <td className="px-4 py-3">
-                      <p className="font-medium truncate max-w-xs">{award.title}</p>
+                      {award.source_url ? (
+                        <a href={award.source_url} target="_blank" rel="noopener noreferrer" className="font-medium truncate max-w-xs block hover:underline" style={{ color: 'var(--navy)' }}>{award.title}</a>
+                      ) : (
+                        <p className="font-medium truncate max-w-xs">{award.title}</p>
+                      )}
                       <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{award.naics_code}</span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell" style={{ color: 'var(--text-secondary)' }}>

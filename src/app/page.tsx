@@ -129,7 +129,11 @@ export default async function OverviewPage() {
             {(awards || []).slice(0, 5).map((award) => (
               <div key={award.id} className="flex items-start justify-between gap-3 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{award.title}</p>
+                  {award.source_url ? (
+                    <a href={award.source_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium truncate block hover:underline" style={{ color: 'var(--navy)' }}>{award.title}</a>
+                  ) : (
+                    <p className="text-sm font-medium truncate">{award.title}</p>
+                  )}
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                     {award.agency} &middot; Won by <strong>{award.winner}</strong>
                   </p>

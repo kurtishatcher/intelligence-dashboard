@@ -126,7 +126,11 @@ export default function CompetitorsPage() {
                     <StatusBadge status={item.type} />
                     {item.significance && <StatusBadge status={item.significance} />}
                   </div>
-                  <h3 className="text-sm font-semibold">{item.title}</h3>
+                  {item.source_url ? (
+                    <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold hover:underline block" style={{ color: 'var(--navy)' }}>{item.title}</a>
+                  ) : (
+                    <h3 className="text-sm font-semibold">{item.title}</h3>
+                  )}
                   {item.summary && (
                     <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{item.summary}</p>
                   )}
