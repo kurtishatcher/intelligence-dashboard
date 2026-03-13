@@ -17,7 +17,7 @@ export default function RootLayout({
       <body>
         <Sidebar />
         <main className="min-h-screen pt-12">
-          <div className="px-6 md:px-16 py-4 md:py-8 max-w-7xl mx-auto">
+          <div style={{ paddingLeft: 'clamp(1.5rem, 5vw, 5rem)', paddingRight: 'clamp(1.5rem, 5vw, 3rem)', paddingTop: '2rem', paddingBottom: '2rem', maxWidth: '80rem' }}>
             {children}
           </div>
         </main>
