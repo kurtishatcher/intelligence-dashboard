@@ -34,7 +34,7 @@ export default async function OverviewPage() {
     : null;
 
   return (
-    <div className="pt-4 md:pt-2">
+    <div>
       <PageHeader
         title="Intelligence Overview"
         subtitle={`Last updated: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`}

@@ -40,7 +40,7 @@ export default function CompetitorsPage() {
   };
 
   return (
-    <div className="pt-4 md:pt-2">
+    <div>
       <PageHeader title="Competitor Intelligence" subtitle="Tracking 7 major consulting firms across OD, leadership, and Federal advisory" />
 
       {/* Competitor Cards Grid */}

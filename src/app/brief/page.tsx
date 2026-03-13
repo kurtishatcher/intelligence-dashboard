@@ -156,7 +156,7 @@ export default function BriefPage() {
   }, []);
 
   return (
-    <div className="pt-4 md:pt-2">
+    <div>
       <PageHeader
         title="Daily Intelligence Brief"
         subtitle="AI-generated strategic intelligence summary"
