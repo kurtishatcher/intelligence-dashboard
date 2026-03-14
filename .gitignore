@@ -45,3 +45,4 @@ next-env.d.ts
 scripts/digests/*/cache/
 scripts/digests/*/output/
 scripts/digests/*/logs/
+scripts/digests/sync.log

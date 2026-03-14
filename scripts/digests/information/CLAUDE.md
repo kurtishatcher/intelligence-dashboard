@@ -26,6 +26,14 @@
 - Dependencies: `pip install -r requirements.txt`
 - Config: copy `.env.example` to `.env` and fill in credentials
 
+## File Sync
+- Files exist in two locations: this repo (`~/intelligence-dashboard/scripts/digests/information/`) and Desktop (`~/Desktop/_Claude_AI_docs/_Projects/AI_Product_Development/Building Your Virtual Team of 50/05 Information Digest/`)
+- `digest-sync.sh` runs at login via launchd (`com.hatchingsolutions.digest-sync`)
+- Desktop → Repo: automatic (fswatch, always on)
+- Repo → Desktop: manual — run `~/intelligence-dashboard/scripts/digest-sync.sh once` from Terminal
+- Synced files: `morning_digest.py`, `requirements.txt`, `.env`, `.env.example`, `CLAUDE.md`, `TASKS.md`
+- Runtime artifacts (cache, output, logs) are independent per location
+
 ## Gotchas
 - `.env` permission warning fires at startup if group/other-readable
 - `__version__ = "3.1"` constant — referenced in HTML footer and JSON export
