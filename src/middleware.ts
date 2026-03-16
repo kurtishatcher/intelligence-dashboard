@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   // Allow login page without session
   if (pathname === "/login") return NextResponse.next();
 
-  // Allow cron and collector endpoints (cron uses CRON_SECRET, collectors are called internally by cron)
+  // Allow cron and collector endpoints (both validate CRON_SECRET independently)
   if (pathname.startsWith("/api/cron/")) return NextResponse.next();
   if (pathname.startsWith("/api/collectors/")) return NextResponse.next();
 

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // USAspending.gov API Collector
 // Endpoint: https://api.usaspending.gov/api/v2/search/spending_by_award/
@@ -35,41 +35,27 @@ interface UsaSpendingAward {
   'generated_internal_id': string | null;
 }
 
-async function fetchFromUsaSpending(params: UsaSpendingSearchParams) {
-  // Default date range: last 12 months (cap end date to avoid future-date API errors)
-  const now = new Date();
-  const maxEndDate = new Date('2025-12-31');
-  const effectiveEnd = now > maxEndDate ? maxEndDate : now;
-  const oneYearAgo = new Date(effectiveEnd);
+function buildDateRange(params: UsaSpendingSearchParams, endDate: Date) {
+  const oneYearAgo = new Date(endDate);
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-
-  const dateRange = params.dateRange || {
+  return params.dateRange || {
     start: oneYearAgo.toISOString().split('T')[0],
-    end: effectiveEnd.toISOString().split('T')[0],
+    end: endDate.toISOString().split('T')[0],
   };
+}
 
-  const requestBody = {
+function buildRequestBody(params: UsaSpendingSearchParams, dateRange: { start: string; end: string }) {
+  return {
     filters: {
       naics_codes: params.naics || RELEVANT_NAICS,
       time_period: [{ start_date: dateRange.start, end_date: dateRange.end }],
-      award_type_codes: ['A', 'B', 'C', 'D'], // Contracts (BPA, PO, Delivery Order, Definitive)
+      award_type_codes: ['A', 'B', 'C', 'D'],
     },
     fields: [
-      'Award ID',
-      'Award Amount',
-      'Total Outlays',
-      'Description',
-      'Start Date',
-      'End Date',
-      'Awarding Agency',
-      'Awarding Sub Agency',
-      'Recipient Name',
-      'recipient_id',
-      'NAICS Code',
-      'NAICS Description',
-      'Award Type',
-      'internal_id',
-      'generated_internal_id',
+      'Award ID', 'Award Amount', 'Total Outlays', 'Description',
+      'Start Date', 'End Date', 'Awarding Agency', 'Awarding Sub Agency',
+      'Recipient Name', 'recipient_id', 'NAICS Code', 'NAICS Description',
+      'Award Type', 'internal_id', 'generated_internal_id',
     ],
     limit: params.limit || 50,
     page: params.page || 1,
@@ -77,6 +63,13 @@ async function fetchFromUsaSpending(params: UsaSpendingSearchParams) {
     sort: 'Award Amount',
     subawards: false,
   };
+}
+
+async function fetchFromUsaSpending(params: UsaSpendingSearchParams) {
+  // Try current date first; if API returns 500 (future-date issue), fall back to end of last complete year
+  const now = new Date();
+  const dateRange = buildDateRange(params, now);
+  const requestBody = buildRequestBody(params, dateRange);
 
   const response = await fetch(`${USASPENDING_API_BASE}/search/spending_by_award/`, {
     method: 'POST',
@@ -84,12 +77,29 @@ async function fetchFromUsaSpending(params: UsaSpendingSearchParams) {
     body: JSON.stringify(requestBody),
   });
 
+  if (response.status === 500 && !params.dateRange) {
+    // Retry with end of last complete year as fallback
+    const fallbackEnd = new Date(`${now.getFullYear() - 1}-12-31`);
+    const fallbackRange = buildDateRange(params, fallbackEnd);
+    const fallbackBody = buildRequestBody(params, fallbackRange);
+
+    const retryResponse = await fetch(`${USASPENDING_API_BASE}/search/spending_by_award/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fallbackBody),
+    });
+
+    if (!retryResponse.ok) {
+      const errorText = await retryResponse.text();
+      return { success: false, error: `USAspending API error (${retryResponse.status}): ${errorText.slice(0, 500)}` };
+    }
+    const data = await retryResponse.json();
+    return { success: true, data };
+  }
+
   if (!response.ok) {
     const errorText = await response.text();
-    return {
-      success: false,
-      error: `USAspending API error (${response.status}): ${errorText.slice(0, 500)}`,
-    };
+    return { success: false, error: `USAspending API error (${response.status}): ${errorText.slice(0, 500)}` };
   }
 
   const data = await response.json();
@@ -126,7 +136,13 @@ function mapToDbRecord(award: UsaSpendingAward) {
   };
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = request.headers.get('authorization');
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const result = await fetchFromUsaSpending({
       naics: RELEVANT_NAICS,

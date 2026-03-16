@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // SAM.gov API Collector
 // Endpoint: https://api.sam.gov/opportunities/v2/search
@@ -114,11 +114,24 @@ async function fetchFromSamGov(params: SamSearchParams) {
   // NAICS filter — single code per request (SAM.gov doesn't support comma-separated)
   if (params.naics && params.naics.length === 1) {
     url.searchParams.set('ncode', params.naics[0]);
+  } else if (params.naics && params.naics.length > 1) {
+    return { success: false, error: 'SAM.gov API requires one NAICS code per request. Pass a single code.' };
   }
 
-  const response = await fetch(url.toString(), {
-    headers: { Accept: 'application/json' },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    const message = err instanceof Error && err.name === 'AbortError' ? 'Request timed out (8s)' : String(err);
+    return { success: false, error: `SAM.gov fetch failed: ${message}` };
+  }
+  clearTimeout(timeout);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -151,21 +164,35 @@ function mapToDbRecord(opp: SamOpportunity) {
   };
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = request.headers.get('authorization');
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    // SAM.gov doesn't support comma-separated NAICS — query each code individually
+    // SAM.gov doesn't support comma-separated NAICS — query each code in parallel
+    const results = await Promise.allSettled(
+      RELEVANT_NAICS.map((code) => fetchFromSamGov({ naics: [code], limit: 25 }))
+    );
+
     const allOpportunities: SamOpportunity[] = [];
     const errors: string[] = [];
 
-    for (const code of RELEVANT_NAICS) {
-      const result = await fetchFromSamGov({ naics: [code], limit: 25 });
-      if (!result.success) {
-        errors.push(`${code}: ${result.error}`);
-        continue;
+    results.forEach((result, i) => {
+      const code = RELEVANT_NAICS[i];
+      if (result.status === 'rejected') {
+        errors.push(`${code}: ${String(result.reason)}`);
+        return;
       }
-      const opps: SamOpportunity[] = result.data?.opportunitiesData || [];
+      if (!result.value.success) {
+        errors.push(`${code}: ${result.value.error}`);
+        return;
+      }
+      const opps: SamOpportunity[] = result.value.data?.opportunitiesData || [];
       allOpportunities.push(...opps);
-    }
+    });
 
     if (allOpportunities.length === 0) {
       return NextResponse.json({

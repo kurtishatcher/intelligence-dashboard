@@ -16,12 +16,31 @@ export async function GET(request: NextRequest) {
   const baseUrl = request.nextUrl.origin;
   const results: Record<string, unknown> = {};
 
-  // SAM.gov collector — requires SAM_GOV_API_KEY env var
-  const samResult = await fetch(`${baseUrl}/api/collectors/sam`, { method: 'POST' }).then((r) => r.json()).catch((err) => ({ error: String(err) }));
-  results.sam = samResult;
+  const collectorHeaders: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}),
+  };
 
-  // USAspending collector — active (public API, no key needed)
-  const usaResult = await fetch(`${baseUrl}/api/collectors/usaspending`, { method: 'POST' }).then((r) => r.json()).catch((err) => ({ error: String(err) }));
+  async function fetchWithTimeout(url: string, timeoutMs = 55000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { method: 'POST', headers: collectorHeaders, signal: controller.signal });
+      return await res.json();
+    } catch (err) {
+      const message = err instanceof Error && err.name === 'AbortError' ? `Timed out after ${timeoutMs / 1000}s` : String(err);
+      return { error: message };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // Run both collectors in parallel with timeouts
+  const [samResult, usaResult] = await Promise.all([
+    fetchWithTimeout(`${baseUrl}/api/collectors/sam`),
+    fetchWithTimeout(`${baseUrl}/api/collectors/usaspending`),
+  ]);
+  results.sam = samResult;
   results.usaspending = usaResult;
 
   return NextResponse.json({
