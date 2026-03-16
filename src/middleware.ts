@@ -7,8 +7,9 @@ export async function middleware(request: NextRequest) {
   // Allow login page without session
   if (pathname === "/login") return NextResponse.next();
 
-  // Allow cron endpoint (uses its own CRON_SECRET auth)
+  // Allow cron and collector endpoints (cron uses CRON_SECRET, collectors are called internally by cron)
   if (pathname.startsWith("/api/cron/")) return NextResponse.next();
+  if (pathname.startsWith("/api/collectors/")) return NextResponse.next();
 
   // Check Supabase session for everything else (pages + API routes)
   let response = NextResponse.next({ request });

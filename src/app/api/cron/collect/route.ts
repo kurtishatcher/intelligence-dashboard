@@ -16,11 +16,9 @@ export async function GET(request: NextRequest) {
   const baseUrl = request.nextUrl.origin;
   const results: Record<string, unknown> = {};
 
-  // SAM.gov collector — disabled until SAM_GOV_API_KEY is configured
-  // To enable: add SAM_GOV_API_KEY env var and uncomment the block below
-  // const samResult = await fetch(`${baseUrl}/api/collectors/sam`, { method: 'POST' }).then((r) => r.json());
-  // results.sam = samResult;
-  results.sam = { status: 'disabled', reason: 'SAM_GOV_API_KEY not configured' };
+  // SAM.gov collector — requires SAM_GOV_API_KEY env var
+  const samResult = await fetch(`${baseUrl}/api/collectors/sam`, { method: 'POST' }).then((r) => r.json()).catch((err) => ({ error: String(err) }));
+  results.sam = samResult;
 
   // USAspending collector — active (public API, no key needed)
   const usaResult = await fetch(`${baseUrl}/api/collectors/usaspending`, { method: 'POST' }).then((r) => r.json()).catch((err) => ({ error: String(err) }));

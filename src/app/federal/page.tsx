@@ -131,8 +131,11 @@ export default function FederalPage() {
                         ) : (
                           <p className="font-medium truncate max-w-xs">{opp.title}</p>
                         )}
+                        {opp.notice_id && (
+                          <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--text-secondary)' }}>{opp.notice_id}</p>
+                        )}
                         <div className="flex gap-2 mt-1">
-                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{opp.naics_code}</span>
+                          {opp.naics_code && <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>NAICS {opp.naics_code}</span>}
                           {opp.set_aside && opp.set_aside !== 'Unrestricted' && (
                             <StatusBadge status={opp.set_aside === 'SDVOSB' ? 'pursuing' : 'new'} label={opp.set_aside} />
                           )}
@@ -194,7 +197,10 @@ export default function FederalPage() {
                       ) : (
                         <p className="font-medium truncate max-w-xs">{award.title}</p>
                       )}
-                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{award.naics_code}</span>
+                      {award.award_id && (
+                        <p className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>{award.award_id}</p>
+                      )}
+                      {award.naics_code && <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>NAICS {award.naics_code}</span>}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell" style={{ color: 'var(--text-secondary)' }}>
                       {award.agency}

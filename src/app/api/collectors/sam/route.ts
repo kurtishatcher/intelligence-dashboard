@@ -95,21 +95,26 @@ async function fetchFromSamGov(params: SamSearchParams) {
   url.searchParams.set('offset', String(params.offset || 0));
   url.searchParams.set('ptype', 'o,p,k'); // Opportunities, presolicitations, combined synopsis/solicitation
 
-  // Date range — default to last 90 days
+  // Date range — default to last 90 days (SAM.gov requires both postedFrom and postedTo in MM/dd/yyyy format)
+  const formatSamDate = (d: Date) => `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+
   if (params.postedFrom) {
     url.searchParams.set('postedFrom', params.postedFrom);
   } else {
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    url.searchParams.set('postedFrom', ninetyDaysAgo.toISOString().split('T')[0].replace(/-/g, '/'));
+    url.searchParams.set('postedFrom', formatSamDate(ninetyDaysAgo));
   }
   if (params.postedTo) {
     url.searchParams.set('postedTo', params.postedTo);
+  } else {
+    url.searchParams.set('postedTo', formatSamDate(new Date()));
   }
 
-  // NAICS filter
-  const naicsCodes = params.naics || RELEVANT_NAICS;
-  url.searchParams.set('ncode', naicsCodes.join(','));
+  // NAICS filter — single code per request (SAM.gov doesn't support comma-separated)
+  if (params.naics && params.naics.length === 1) {
+    url.searchParams.set('ncode', params.naics[0]);
+  }
 
   const response = await fetch(url.toString(), {
     headers: { Accept: 'application/json' },
@@ -148,29 +153,41 @@ function mapToDbRecord(opp: SamOpportunity) {
 
 export async function POST() {
   try {
-    const result = await fetchFromSamGov({
-      naics: RELEVANT_NAICS,
-      limit: 25,
-    });
+    // SAM.gov doesn't support comma-separated NAICS — query each code individually
+    const allOpportunities: SamOpportunity[] = [];
+    const errors: string[] = [];
 
-    if (!result.success) {
-      return NextResponse.json({ collector: 'sam-gov', ...result }, { status: 400 });
+    for (const code of RELEVANT_NAICS) {
+      const result = await fetchFromSamGov({ naics: [code], limit: 25 });
+      if (!result.success) {
+        errors.push(`${code}: ${result.error}`);
+        continue;
+      }
+      const opps: SamOpportunity[] = result.data?.opportunitiesData || [];
+      allOpportunities.push(...opps);
     }
 
-    const opportunities: SamOpportunity[] = result.data?.opportunitiesData || [];
-
-    if (opportunities.length === 0) {
+    if (allOpportunities.length === 0) {
       return NextResponse.json({
         collector: 'sam-gov',
-        status: 'success',
+        status: errors.length > 0 ? 'partial' : 'success',
         message: 'No new opportunities found matching NAICS filters.',
         fetched: 0,
         upserted: 0,
+        errors: errors.length > 0 ? errors : undefined,
       });
     }
 
+    // Deduplicate by noticeId
+    const seen = new Set<string>();
+    const unique = allOpportunities.filter((o) => {
+      if (seen.has(o.noticeId)) return false;
+      seen.add(o.noticeId);
+      return true;
+    });
+
     // Map to DB schema
-    const records = opportunities.map(mapToDbRecord);
+    const records = unique.map(mapToDbRecord);
 
     // Upsert to Supabase (skip duplicates by notice_id)
     const supabase = createClient(
@@ -193,10 +210,11 @@ export async function POST() {
     return NextResponse.json({
       collector: 'sam-gov',
       status: 'success',
-      fetched: opportunities.length,
+      fetched: unique.length,
       upserted: data?.length || 0,
       naics_codes: RELEVANT_NAICS,
       timestamp: new Date().toISOString(),
+      errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err) {
     return NextResponse.json(

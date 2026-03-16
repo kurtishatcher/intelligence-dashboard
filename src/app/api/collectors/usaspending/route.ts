@@ -36,14 +36,16 @@ interface UsaSpendingAward {
 }
 
 async function fetchFromUsaSpending(params: UsaSpendingSearchParams) {
-  // Default date range: last 12 months
+  // Default date range: last 12 months (cap end date to avoid future-date API errors)
   const now = new Date();
-  const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(now.getFullYear() - 1);
+  const maxEndDate = new Date('2025-12-31');
+  const effectiveEnd = now > maxEndDate ? maxEndDate : now;
+  const oneYearAgo = new Date(effectiveEnd);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
   const dateRange = params.dateRange || {
     start: oneYearAgo.toISOString().split('T')[0],
-    end: now.toISOString().split('T')[0],
+    end: effectiveEnd.toISOString().split('T')[0],
   };
 
   const requestBody = {
