@@ -76,7 +76,7 @@ export default async function OverviewPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Opportunities */}
-        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--navy)' }}>Top Federal Opportunities</h2>
           <div className="space-y-3">
             {highFitOpps.slice(0, 5).map((opp) => (
@@ -87,7 +87,7 @@ export default async function OverviewPage() {
                   ) : (
                     <p className="text-sm font-medium truncate">{opp.title}</p>
                   )}
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                     {opp.agency} &middot; ${((opp.estimated_value || 0) / 1000000).toFixed(1)}M
                   </p>
                 </div>
@@ -101,7 +101,7 @@ export default async function OverviewPage() {
         </div>
 
         {/* Recent Competitor Intel */}
-        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--navy)' }}>Recent Competitor Intelligence</h2>
           <div className="space-y-3">
             {(recentIntel || []).map((intel) => (
@@ -109,7 +109,7 @@ export default async function OverviewPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{intel.title}</p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       {(intel.competitors as { name: string } | null)?.name} &middot; {intel.published_at ? new Date(intel.published_at).toLocaleDateString() : 'N/A'}
                     </p>
                     {intel.source_url && (
@@ -129,7 +129,7 @@ export default async function OverviewPage() {
         </div>
 
         {/* Recent Awards */}
-        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--navy)' }}>Recent Contract Awards</h2>
           <div className="space-y-3">
             {(awards || []).slice(0, 5).map((award) => (
@@ -140,13 +140,13 @@ export default async function OverviewPage() {
                   ) : (
                     <p className="text-sm font-medium truncate">{award.title}</p>
                   )}
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                     {award.agency} &middot; Won by <strong>{award.winner}</strong>
                   </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-bold" style={{ color: 'var(--navy)' }}>${((award.value || 0) / 1000000).toFixed(1)}M</p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{award.duration_months}mo</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{award.duration_months}mo</p>
                 </div>
               </div>
             ))}
@@ -154,11 +154,11 @@ export default async function OverviewPage() {
         </div>
 
         {/* Latest Brief Preview */}
-        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--navy)' }}>Latest Intelligence Brief</h2>
           {latestBrief?.[0] ? (
             <div>
-              <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
                 {new Date(latestBrief[0].brief_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
               <div className="space-y-2">
@@ -174,30 +174,30 @@ export default async function OverviewPage() {
               </a>
             </div>
           ) : (
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No brief generated yet.</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No brief generated yet.</p>
           )}
         </div>
       </div>
 
       {/* Market Summary */}
-      <div className="mt-6 rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+      <div className="mt-6 rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
         <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--navy)' }}>Market Summary</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
             <p className="text-2xl font-bold" style={{ color: 'var(--navy)' }}>${(totalAwardValue / 1000000).toFixed(0)}M</p>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Recent Award Volume</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Recent Award Volume</p>
           </div>
           <div>
             <p className="text-2xl font-bold" style={{ color: 'var(--navy)' }}>{awards?.length || 0}</p>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Tracked Awards</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Tracked Awards</p>
           </div>
           <div>
             <p className="text-2xl font-bold" style={{ color: 'var(--navy)' }}>{opportunities?.filter(o => o.set_aside === 'SDVOSB').length || 0}</p>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>SDVOSB Opportunities</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>SDVOSB Opportunities</p>
           </div>
           <div>
             <p className="text-2xl font-bold" style={{ color: 'var(--navy)' }}>{opportunities?.filter(o => o.set_aside === 'SB').length || 0}</p>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Small Business Set-Asides</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Small Business Set-Asides</p>
           </div>
         </div>
       </div>

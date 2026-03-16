@@ -21,18 +21,18 @@ export function PipelineTrendChart({ opportunities }: { opportunities: Opportuni
   const data = Object.values(monthlyData).slice(-12);
 
   if (data.length === 0) {
-    return <p className="text-sm text-center py-8" style={{ color: 'var(--text-secondary)' }}>No pipeline data yet.</p>;
+    return <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No pipeline data yet.</p>;
   }
 
   return (
     <ResponsiveContainer width="100%" height={250}>
       <LineChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-        <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
-        <YAxis yAxisId="count" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
-        <YAxis yAxisId="value" orientation="right" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
+        <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
+        <YAxis yAxisId="count" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
+        <YAxis yAxisId="value" orientation="right" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
         <Tooltip
-          contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }}
+          contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 8 }}
           formatter={(v, name) => [name === 'count' ? `${v} opps` : `$${Number(v).toFixed(1)}M`, name === 'count' ? 'Opportunities' : 'Value']}
         />
         <Line yAxisId="count" type="monotone" dataKey="count" stroke={CHART_COLORS.navy} strokeWidth={2} dot={{ r: 3 }} />

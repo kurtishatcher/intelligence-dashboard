@@ -26,7 +26,7 @@ export function IntelByTypeChart({ intel }: { intel: IntelItem[] }) {
   const data = Object.values(byType).sort((a, b) => b.value - a.value);
 
   if (data.length === 0) {
-    return <p className="text-sm text-center py-8" style={{ color: 'var(--text-secondary)' }}>No intel data yet.</p>;
+    return <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No intel data yet.</p>;
   }
 
   return (
@@ -38,7 +38,7 @@ export function IntelByTypeChart({ intel }: { intel: IntelItem[] }) {
           ))}
         </Pie>
         <Tooltip
-          contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }}
+          contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 8 }}
           formatter={(v) => [`${v} entries`, 'Count']}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />

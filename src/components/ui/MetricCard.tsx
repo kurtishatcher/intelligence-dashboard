@@ -7,20 +7,20 @@ interface MetricCardProps {
 }
 
 export function MetricCard({ label, value, change, trend, accent }: MetricCardProps) {
-  const trendColor = trend === 'up' ? 'var(--success)' : trend === 'down' ? 'var(--danger)' : 'var(--text-secondary)';
+  const trendColor = trend === 'up' ? 'var(--success)' : trend === 'down' ? 'var(--danger)' : 'var(--text-muted)';
   const trendArrow = trend === 'up' ? '\u2191' : trend === 'down' ? '\u2193' : '\u2192';
 
   return (
     <div
-      className="rounded-xl p-5 border"
+      className="rounded-lg p-5 border"
       style={{
-        background: accent ? 'var(--navy)' : 'var(--bg-card)',
+        background: accent ? 'var(--navy)' : 'var(--card-bg)',
         borderColor: accent ? 'transparent' : 'var(--border)',
       }}
     >
       <p
         className="text-xs font-medium uppercase tracking-wider mb-2"
-        style={{ color: accent ? 'var(--text-sidebar)' : 'var(--text-secondary)' }}
+        style={{ color: accent ? 'var(--text-sidebar)' : 'var(--text-muted)' }}
       >
         {label}
       </p>

@@ -36,9 +36,9 @@ export default function CompetitorsPage() {
   const intelTypes = ['all', 'revenue', 'pivot', 'thought_leadership', 'framework', 'offering'];
 
   const selectStyle = {
-    background: 'var(--bg-card)',
+    background: 'var(--card-bg)',
     borderColor: 'var(--border)',
-    color: 'var(--text-primary)',
+    color: 'var(--text)',
   };
 
   return (
@@ -54,16 +54,16 @@ export default function CompetitorsPage() {
             <button
               key={comp.id}
               onClick={() => setSelectedFirm(isSelected ? null : comp.id)}
-              className="text-left rounded-xl border p-4 transition-all"
+              className="text-left rounded-lg border p-4 transition-all"
               style={{
-                background: isSelected ? 'var(--navy)' : 'var(--bg-card)',
+                background: isSelected ? 'var(--navy)' : 'var(--card-bg)',
                 borderColor: isSelected ? 'var(--navy)' : 'var(--border)',
               }}
             >
               <h3 className="font-semibold text-sm" style={{ color: isSelected ? '#ffffff' : 'var(--navy)' }}>
                 {comp.name}
               </h3>
-              <p className="text-xs mt-1" style={{ color: isSelected ? 'var(--text-sidebar)' : 'var(--text-secondary)' }}>
+              <p className="text-xs mt-1" style={{ color: isSelected ? 'var(--text-sidebar)' : 'var(--text-muted)' }}>
                 ${comp.revenue_billions}B revenue &middot; {(comp.employee_count || 0).toLocaleString()} employees
               </p>
               <div className="flex flex-wrap gap-1 mt-2">
@@ -72,8 +72,8 @@ export default function CompetitorsPage() {
                     key={area}
                     className="px-2 py-0.5 rounded text-xs"
                     style={{
-                      background: isSelected ? 'rgba(255,255,255,0.15)' : 'var(--bg-primary)',
-                      color: isSelected ? 'var(--text-sidebar)' : 'var(--text-secondary)',
+                      background: isSelected ? 'rgba(255,255,255,0.15)' : 'var(--bg)',
+                      color: isSelected ? 'var(--text-sidebar)' : 'var(--text-muted)',
                     }}
                   >
                     {area}
@@ -84,7 +84,7 @@ export default function CompetitorsPage() {
                 <span className="text-xs font-medium" style={{ color: isSelected ? 'var(--accent-blue-light)' : 'var(--accent-blue)' }}>
                   {compIntel.length} intel entries
                 </span>
-                <span className="text-xs" style={{ color: isSelected ? 'var(--text-sidebar)' : 'var(--text-secondary)' }}>
+                <span className="text-xs" style={{ color: isSelected ? 'var(--text-sidebar)' : 'var(--text-muted)' }}>
                   &middot; {compIntel.filter(i => i.significance === 'critical').length} critical
                 </span>
               </div>
@@ -95,23 +95,23 @@ export default function CompetitorsPage() {
 
       {/* Intel Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--navy)' }}>Intel by Type</h2>
           <IntelByTypeChart intel={filteredIntel} />
         </div>
-        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--navy)' }}>Intel by Significance</h2>
           <IntelBySignificanceChart intel={filteredIntel} />
         </div>
       </div>
 
       {/* Intel Feed */}
-      <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+      <div className="rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold" style={{ color: 'var(--navy)' }}>
             Intelligence Feed
             {selectedFirm && (
-              <span className="text-sm font-normal ml-2" style={{ color: 'var(--text-secondary)' }}>
+              <span className="text-sm font-normal ml-2" style={{ color: 'var(--text-muted)' }}>
                 — {competitors.find(c => c.id === selectedFirm)?.name}
               </span>
             )}
@@ -146,10 +146,10 @@ export default function CompetitorsPage() {
                     <h3 className="text-sm font-semibold">{item.title}</h3>
                   )}
                   {item.summary && (
-                    <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{item.summary}</p>
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{item.summary}</p>
                   )}
                   <div className="flex items-center gap-3 mt-2">
-                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       {item.published_at ? new Date(item.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                     </span>
                     {item.source_url && (
@@ -169,7 +169,7 @@ export default function CompetitorsPage() {
             </div>
           ))}
           {filteredIntel.length === 0 && (
-            <p className="text-sm text-center py-8" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
               No intelligence entries match your filters.
             </p>
           )}
@@ -178,7 +178,7 @@ export default function CompetitorsPage() {
 
       {/* OD Relevance Section */}
       {selectedFirm && (
-        <div className="mt-6 rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="mt-6 rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--navy)' }}>OD Competitive Analysis</h2>
           {(() => {
             const comp = competitors.find(c => c.id === selectedFirm);
@@ -188,7 +188,7 @@ export default function CompetitorsPage() {
                 <p className="text-sm mb-3">{comp.od_relevance}</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {(comp.focus_areas || []).map((area) => (
-                    <div key={area} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg-primary)' }}>
+                    <div key={area} className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>
                       {area}
                     </div>
                   ))}

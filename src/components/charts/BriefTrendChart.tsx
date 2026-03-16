@@ -21,16 +21,16 @@ export function BriefTrendChart({ briefs }: { briefs: Brief[] }) {
   const data = Object.values(byWeek).slice(-12);
 
   if (data.length === 0) {
-    return <p className="text-xs text-center py-4" style={{ color: 'var(--text-secondary)' }}>No briefs yet.</p>;
+    return <p className="text-xs text-center py-4" style={{ color: 'var(--text-muted)' }}>No briefs yet.</p>;
   }
 
   return (
     <ResponsiveContainer width="100%" height={120}>
       <AreaChart data={data}>
-        <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
+        <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
         <YAxis hide allowDecimals={false} />
         <Tooltip
-          contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+          contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
           formatter={(v) => [`${v} briefs`, 'Count']}
         />
         <Area type="monotone" dataKey="count" stroke={CHART_COLORS.navy} fill={CHART_COLORS.navy} fillOpacity={0.15} />

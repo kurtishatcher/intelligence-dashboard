@@ -29,10 +29,10 @@ export function FitScoreDistribution({ opportunities }: { opportunities: Opportu
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-        <XAxis dataKey="range" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
-        <YAxis tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} allowDecimals={false} />
+        <XAxis dataKey="range" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
+        <YAxis tick={{ fontSize: 12, fill: 'var(--text-muted)' }} allowDecimals={false} />
         <Tooltip
-          contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }}
+          contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 8 }}
           formatter={(v) => [`${v} opportunities`, 'Count']}
         />
         <Bar dataKey="count" radius={[4, 4, 0, 0]}>

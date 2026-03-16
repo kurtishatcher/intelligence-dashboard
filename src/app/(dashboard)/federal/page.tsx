@@ -45,9 +45,9 @@ export default function FederalPage() {
     : 0;
 
   const selectStyle = {
-    background: 'var(--bg-card)',
+    background: 'var(--card-bg)',
     borderColor: 'var(--border)',
-    color: 'var(--text-primary)',
+    color: 'var(--text)',
   };
 
   return (
@@ -63,11 +63,11 @@ export default function FederalPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--navy)' }}>Fit Score Distribution</h2>
           <FitScoreDistribution opportunities={filtered} />
         </div>
-        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="rounded-lg border p-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--navy)' }}>Opportunities by NAICS</h2>
           <OpportunitiesByNaics opportunities={filtered} />
         </div>
@@ -81,8 +81,8 @@ export default function FederalPage() {
             onClick={() => setTab(t)}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{
-              background: tab === t ? 'var(--navy)' : 'var(--bg-card)',
-              color: tab === t ? '#ffffff' : 'var(--text-secondary)',
+              background: tab === t ? 'var(--navy)' : 'var(--card-bg)',
+              color: tab === t ? '#ffffff' : 'var(--text-muted)',
               border: tab === t ? 'none' : '1px solid var(--border)',
             }}
           >
@@ -123,17 +123,17 @@ export default function FederalPage() {
           </div>
 
           {/* Table */}
-          <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+          <div className="rounded-lg border overflow-hidden" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ background: 'var(--bg-primary)' }}>
-                    <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-secondary)' }}>Opportunity</th>
-                    <th className="text-left px-4 py-3 font-medium hidden md:table-cell" style={{ color: 'var(--text-secondary)' }}>Agency</th>
-                    <th className="text-right px-4 py-3 font-medium" style={{ color: 'var(--text-secondary)' }}>Value</th>
-                    <th className="text-center px-4 py-3 font-medium" style={{ color: 'var(--text-secondary)' }}>Fit</th>
-                    <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: 'var(--text-secondary)' }}>Deadline</th>
-                    <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-secondary)' }}>Status</th>
+                  <tr style={{ background: 'var(--bg)' }}>
+                    <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Opportunity</th>
+                    <th className="text-left px-4 py-3 font-medium hidden md:table-cell" style={{ color: 'var(--text-muted)' }}>Agency</th>
+                    <th className="text-right px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Value</th>
+                    <th className="text-center px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Fit</th>
+                    <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>Deadline</th>
+                    <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -146,16 +146,16 @@ export default function FederalPage() {
                           <p className="font-medium truncate max-w-xs">{opp.title}</p>
                         )}
                         {opp.notice_id && (
-                          <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--text-secondary)' }}>{opp.notice_id}</p>
+                          <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--text-muted)' }}>{opp.notice_id}</p>
                         )}
                         <div className="flex gap-2 mt-1">
-                          {opp.naics_code && <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>NAICS {opp.naics_code}</span>}
+                          {opp.naics_code && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>NAICS {opp.naics_code}</span>}
                           {opp.set_aside && opp.set_aside !== 'Unrestricted' && (
                             <StatusBadge status={opp.set_aside === 'SDVOSB' ? 'pursuing' : 'new'} label={opp.set_aside} />
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 hidden md:table-cell" style={{ color: 'var(--text-secondary)' }}>
+                      <td className="px-4 py-3 hidden md:table-cell" style={{ color: 'var(--text-muted)' }}>
                         <p className="truncate max-w-[200px]">{opp.agency}</p>
                         {opp.sub_agency && <p className="text-xs truncate max-w-[200px]">{opp.sub_agency}</p>}
                       </td>
@@ -173,7 +173,7 @@ export default function FederalPage() {
                           {opp.fit_score}
                         </span>
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell" style={{ color: 'var(--text-secondary)' }}>
+                      <td className="px-4 py-3 hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>
                         {opp.response_deadline ? new Date(opp.response_deadline).toLocaleDateString() : 'TBD'}
                       </td>
                       <td className="px-4 py-3">
@@ -189,17 +189,17 @@ export default function FederalPage() {
       )}
 
       {tab === 'awards' && (
-        <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+        <div className="rounded-lg border overflow-hidden" style={{ background: 'var(--card-bg)', borderColor: 'var(--border)' }}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: 'var(--bg-primary)' }}>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-secondary)' }}>Contract</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell" style={{ color: 'var(--text-secondary)' }}>Agency</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-secondary)' }}>Winner</th>
-                  <th className="text-right px-4 py-3 font-medium" style={{ color: 'var(--text-secondary)' }}>Value</th>
-                  <th className="text-center px-4 py-3 font-medium hidden sm:table-cell" style={{ color: 'var(--text-secondary)' }}>Duration</th>
-                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: 'var(--text-secondary)' }}>Date</th>
+                <tr style={{ background: 'var(--bg)' }}>
+                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Contract</th>
+                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell" style={{ color: 'var(--text-muted)' }}>Agency</th>
+                  <th className="text-left px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Winner</th>
+                  <th className="text-right px-4 py-3 font-medium" style={{ color: 'var(--text-muted)' }}>Value</th>
+                  <th className="text-center px-4 py-3 font-medium hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>Duration</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,11 +212,11 @@ export default function FederalPage() {
                         <p className="font-medium truncate max-w-xs">{award.title}</p>
                       )}
                       {award.award_id && (
-                        <p className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>{award.award_id}</p>
+                        <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{award.award_id}</p>
                       )}
-                      {award.naics_code && <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>NAICS {award.naics_code}</span>}
+                      {award.naics_code && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>NAICS {award.naics_code}</span>}
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell" style={{ color: 'var(--text-secondary)' }}>
+                    <td className="px-4 py-3 hidden md:table-cell" style={{ color: 'var(--text-muted)' }}>
                       {award.agency}
                     </td>
                     <td className="px-4 py-3 font-medium" style={{ color: 'var(--navy)' }}>
@@ -225,10 +225,10 @@ export default function FederalPage() {
                     <td className="px-4 py-3 text-right font-medium" style={{ color: 'var(--navy)' }}>
                       ${((award.value || 0) / 1000000).toFixed(1)}M
                     </td>
-                    <td className="px-4 py-3 text-center hidden sm:table-cell" style={{ color: 'var(--text-secondary)' }}>
+                    <td className="px-4 py-3 text-center hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>
                       {award.duration_months}mo
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell" style={{ color: 'var(--text-secondary)' }}>
+                    <td className="px-4 py-3 hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>
                       {award.award_date ? new Date(award.award_date).toLocaleDateString() : 'N/A'}
                     </td>
                   </tr>

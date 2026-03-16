@@ -25,10 +25,10 @@ export function IntelBySignificanceChart({ intel }: { intel: IntelItem[] }) {
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={bySig}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-        <XAxis dataKey="significance" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
-        <YAxis tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} allowDecimals={false} />
+        <XAxis dataKey="significance" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
+        <YAxis tick={{ fontSize: 12, fill: 'var(--text-muted)' }} allowDecimals={false} />
         <Tooltip
-          contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }}
+          contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 8 }}
           formatter={(v) => [`${v} entries`, 'Count']}
         />
         <Bar dataKey="count" radius={[4, 4, 0, 0]}>

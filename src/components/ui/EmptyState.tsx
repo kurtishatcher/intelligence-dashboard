@@ -11,11 +11,11 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
         className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
         style={{ background: 'var(--border)' }}
       >
-        <span className="text-2xl" style={{ color: 'var(--text-secondary)' }}>{'\u25C7'}</span>
+        <span className="text-2xl" style={{ color: 'var(--text-muted)' }}>{'\u25C7'}</span>
       </div>
       <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--navy)' }}>{title}</h3>
       {description && (
-        <p className="text-sm max-w-md" style={{ color: 'var(--text-secondary)' }}>{description}</p>
+        <p className="text-sm max-w-md" style={{ color: 'var(--text-muted)' }}>{description}</p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>

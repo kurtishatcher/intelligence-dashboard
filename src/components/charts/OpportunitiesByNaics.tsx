@@ -21,7 +21,7 @@ export function OpportunitiesByNaics({ opportunities }: { opportunities: Opportu
   const data = Object.values(byNaics).sort((a, b) => b.value - a.value);
 
   if (data.length === 0) {
-    return <p className="text-sm text-center py-8" style={{ color: 'var(--text-secondary)' }}>No opportunity data yet.</p>;
+    return <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No opportunity data yet.</p>;
   }
 
   return (
@@ -33,7 +33,7 @@ export function OpportunitiesByNaics({ opportunities }: { opportunities: Opportu
           ))}
         </Pie>
         <Tooltip
-          contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }}
+          contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 8 }}
           formatter={(v) => [`${v} opportunities`, 'Count']}
         />
       </PieChart>
