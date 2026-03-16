@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
   // Allow cron and collector endpoints (both validate CRON_SECRET independently)
   if (pathname.startsWith("/api/cron/")) return NextResponse.next();
   if (pathname.startsWith("/api/collectors/")) return NextResponse.next();
+  if (pathname.startsWith("/api/brief/")) return NextResponse.next();
 
   // Check Supabase session for everything else (pages + API routes)
   let response = NextResponse.next({ request });

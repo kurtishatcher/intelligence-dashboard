@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { IntelligenceBrief } from '@/lib/types/database';
+import { BriefTrendChart } from '@/components/charts/BriefTrendChart';
 
 function renderMarkdown(content: string) {
   const lines = content.split('\n');
@@ -140,20 +141,37 @@ function renderInlineMarkdown(text: string): React.ReactNode {
 export default function BriefPage() {
   const [briefs, setBriefs] = useState<IntelligenceBrief[]>([]);
   const [selectedBrief, setSelectedBrief] = useState<IntelligenceBrief | null>(null);
+  const [generating, setGenerating] = useState(false);
 
-  useEffect(() => {
+  async function loadBriefs() {
     const supabase = createClient();
-    async function load() {
-      const { data } = await supabase
-        .from('intelligence_briefs')
-        .select('*')
-        .order('brief_date', { ascending: false });
-      const briefList = (data as IntelligenceBrief[]) || [];
-      setBriefs(briefList);
-      if (briefList.length > 0) setSelectedBrief(briefList[0]);
+    const { data } = await supabase
+      .from('intelligence_briefs')
+      .select('*')
+      .order('brief_date', { ascending: false });
+    const briefList = (data as IntelligenceBrief[]) || [];
+    setBriefs(briefList);
+    if (briefList.length > 0) setSelectedBrief(briefList[0]);
+  }
+
+  useEffect(() => { loadBriefs(); }, []);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    try {
+      const res = await fetch('/api/brief/generate', { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`Brief generation failed: ${err.error}`);
+        return;
+      }
+      await loadBriefs();
+    } catch (err) {
+      alert(`Brief generation failed: ${err}`);
+    } finally {
+      setGenerating(false);
     }
-    load();
-  }, []);
+  }
 
   return (
     <div>
@@ -162,11 +180,12 @@ export default function BriefPage() {
         subtitle="AI-generated strategic intelligence summary"
         action={
           <button
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
             style={{ background: 'var(--navy)' }}
-            onClick={() => alert('Brief generation requires Claude API key. Add ANTHROPIC_API_KEY to .env.local to enable.')}
+            onClick={handleGenerate}
+            disabled={generating}
           >
-            Generate New Brief
+            {generating ? 'Generating...' : 'Generate New Brief'}
           </button>
         }
       />
@@ -201,6 +220,12 @@ export default function BriefPage() {
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>No briefs generated yet.</p>
               )}
             </div>
+          </div>
+
+          {/* Brief Trend */}
+          <div className="rounded-xl border p-4 mt-4" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--navy)' }}>Generation Trend</h3>
+            <BriefTrendChart briefs={briefs} />
           </div>
         </div>
 

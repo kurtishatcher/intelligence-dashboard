@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { OverviewCharts } from '@/components/charts/OverviewCharts';
 
 export default async function OverviewPage() {
   const supabase = await createClient();
@@ -67,6 +68,11 @@ export default async function OverviewPage() {
           trend={daysUntilDeadline !== null && daysUntilDeadline <= 14 ? 'down' : 'neutral'}
         />
       </div>
+
+      <OverviewCharts
+        opportunities={(opportunities || []).map(o => ({ posted_at: o.posted_at, estimated_value: o.estimated_value }))}
+        awards={(awards || []).map(a => ({ agency: a.agency, value: a.value }))}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Opportunities */}

@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { Competitor, CompetitorIntel } from '@/lib/types/database';
+import { IntelByTypeChart } from '@/components/charts/IntelByTypeChart';
+import { IntelBySignificanceChart } from '@/components/charts/IntelBySignificanceChart';
 
 export default function CompetitorsPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -89,6 +91,18 @@ export default function CompetitorsPage() {
             </button>
           );
         })}
+      </div>
+
+      {/* Intel Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--navy)' }}>Intel by Type</h2>
+          <IntelByTypeChart intel={filteredIntel} />
+        </div>
+        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--navy)' }}>Intel by Significance</h2>
+          <IntelBySignificanceChart intel={filteredIntel} />
+        </div>
       </div>
 
       {/* Intel Feed */}

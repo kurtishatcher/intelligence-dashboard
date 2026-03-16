@@ -4,28 +4,55 @@
 - Stack: Next.js 16 + Supabase + Vercel
 - Deployment: intelligence-dashboard-phi.vercel.app
 - GitHub: kurtishatcher/intelligence-dashboard
+- Supabase: shared instance `pxjnrkxwocmarwzhzplz` — 6 tables (bare names, no prefix), RLS enabled
 
 ## Structure
 - `src/` — Next.js app (App Router, TypeScript, Tailwind 4)
-- `supabase/` — Database migrations (6 tables: competitors, intel, opportunities, awards, jobs, briefs)
-- `scripts/digests/daily/` — Daily Digest (Tue/Wed/Thu 6am, Python + Claude Haiku + SMTP)
-- `scripts/digests/information/` — Information Digest (Mon/Fri 6am, Python + Claude Haiku + SMTP)
-- `scripts/digest-sync.sh` — Bidirectional file sync between repo and Desktop copies
+- `supabase/` — Database migrations (001 schema + 002 RLS policies)
+- `scripts/digests/daily/` — Daily Digest (legacy Python, being replaced by ~/daily-digest web app)
+- `scripts/digests/information/` — Information Digest (legacy Python, being replaced by ~/information-digest-web)
+- `scripts/digest-sync.sh` — Bidirectional file sync (will be retired after web digest migration)
 
-## File Sync Protocol
-- Digest scripts exist in two locations: this repo and Desktop (`~/Desktop/_Claude_AI_docs/_Projects/AI_Product_Development/Building Your Virtual Team of 50/`)
-- `digest-sync.sh` runs at login via launchd (`com.hatchingsolutions.digest-sync`)
-- Desktop → Repo: automatic (fswatch, always on)
-- Repo → Desktop: manual — run `~/intelligence-dashboard/scripts/digest-sync.sh once` from Terminal
-- Synced files: `morning_digest.py`, `requirements.txt`, `.env`, `.env.example`, `CLAUDE.md`, `TASKS.md`
-- Runtime artifacts (cache, output, logs) are independent per location
+## Data Collectors (all 4 active)
+- `/api/collectors/sam` — SAM.gov Federal solicitations. Queries each NAICS code in parallel. Requires `SAM_GOV_API_KEY` + `CRON_SECRET`
+- `/api/collectors/usaspending` — USAspending.gov contract awards. Public API. Retry-on-500 fallback
+- `/api/collectors/news` — RSS feeds for 3 competitors (Deloitte, McKinsey, BCG). Claude Haiku classifies for OD relevance. Inserts to `competitor_intel`
+- `/api/collectors/jobs` — Perplexity API job search for 7 competitors. Claude Haiku extracts structured data. Inserts to `job_postings`. Requires `PERPLEXITY_API_KEY`
 
-## launchd Services
-- `com.hatchingsolutions.daily-digest` — Tue/Wed/Thu 6am
-- `com.hatchingsolutions.information-digest` — Mon/Fri 6am
-- `com.hatchingsolutions.digest-sync` — runs at login, keeps Desktop→Repo in sync
+## Cron Pipeline (3 phases, biweekly 1st/15th 6am UTC)
+- `/api/cron/collect` — Orchestrates all operations:
+  1. Data collection (parallel): SAM.gov + USAspending (20s timeout each)
+  2. Intelligence collection (parallel): News RSS + Jobs (15s timeout each)
+  3. Synthesis: Claude brief generation (15s timeout)
+- Total ~50s, within 60s Vercel Hobby limit
+
+## Brief Generation
+- `/api/brief/generate` — Claude Sonnet 4.6 synthesizes recent data into `intelligence_briefs`
+- Structured output: markdown content, highlights (jsonb), competitor_mentions (jsonb), federal_highlights (jsonb)
+- Manual trigger via "Generate New Brief" button on `/brief` page
+- Automated via cron pipeline (Phase 3)
+
+## Recharts Visualizations (7 charts)
+- Overview: Pipeline trend (line), Awards by agency (horizontal bar)
+- Federal: Fit score distribution (bar), Opportunities by NAICS (pie)
+- Competitors: Intel by type (pie), Intel by significance (bar)
+- Brief: Generation trend (area)
+
+## RLS (migration 002)
+- Session-based (not user-scoped) — all tables are reference data
+- Authenticated users: SELECT on all tables, UPDATE on federal_opportunities (status changes), INSERT on competitor_intel
+- Service role (collectors/cron): bypasses RLS automatically
+
+## Authentication
+- Supabase Auth middleware on all pages and API routes
+- Excluded: `/login`, `/api/cron/*`, `/api/collectors/*`, `/api/brief/*`
+- All excluded endpoints validate `CRON_SECRET` independently
 
 ## Environment
-- `.env.local` — Supabase credentials (Next.js app)
-- `scripts/digests/*/. env` — Anthropic API key + SMTP credentials (per-digest)
-- All `.env` files gitignored; `.env.example` templates committed
+- `.env.local` — Supabase credentials, ANTHROPIC_API_KEY, SAM_GOV_API_KEY, PERPLEXITY_API_KEY
+- Vercel env vars: `CRON_SECRET`, `SAM_GOV_API_KEY`, `PERPLEXITY_API_KEY`, `ANTHROPIC_API_KEY`, Supabase keys
+
+## Legacy Digest Systems (being migrated)
+- Python digest scripts remain in `scripts/digests/` until web apps are verified
+- launchd services: `com.hatchingsolutions.daily-digest`, `com.hatchingsolutions.information-digest`, `com.hatchingsolutions.digest-sync`
+- Will be retired after web digest apps are deployed and validated

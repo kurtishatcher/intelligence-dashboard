@@ -6,6 +6,8 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { MetricCard } from '@/components/ui/MetricCard';
 import type { FederalOpportunity, ContractAward } from '@/lib/types/database';
+import { FitScoreDistribution } from '@/components/charts/FitScoreDistribution';
+import { OpportunitiesByNaics } from '@/components/charts/OpportunitiesByNaics';
 
 type FilterStatus = 'all' | 'new' | 'reviewing' | 'pursuing' | 'passed' | 'submitted';
 type FilterSetAside = 'all' | 'SDVOSB' | 'SB' | '8(a)' | 'Unrestricted';
@@ -57,6 +59,18 @@ export default function FederalPage() {
         <MetricCard label="Pipeline Value" value={`$${(totalValue / 1000000).toFixed(1)}M`} />
         <MetricCard label="Avg Fit Score" value={avgFitScore} trend={avgFitScore >= 75 ? 'up' : 'neutral'} />
         <MetricCard label="Awards Tracked" value={awards.length} />
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--navy)' }}>Fit Score Distribution</h2>
+          <FitScoreDistribution opportunities={filtered} />
+        </div>
+        <div className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--navy)' }}>Opportunities by NAICS</h2>
+          <OpportunitiesByNaics opportunities={filtered} />
+        </div>
       </div>
 
       {/* Tab Toggle */}
