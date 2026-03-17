@@ -4,8 +4,9 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login page without session
+  // Allow login page and auth handoff without session
   if (pathname === "/login") return NextResponse.next();
+  if (pathname === "/api/auth/handoff") return NextResponse.next();
 
   // Allow cron and collector endpoints (both validate CRON_SECRET independently)
   if (pathname.startsWith("/api/cron/")) return NextResponse.next();

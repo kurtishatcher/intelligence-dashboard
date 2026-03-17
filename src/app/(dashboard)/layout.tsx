@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
+import { useCallback, useRef } from "react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Overview", icon: "\u2318" },
@@ -23,19 +24,46 @@ const SYSTEM_LINKS = [
   { label: "Consulting Website", href: "https://consulting-website-gules.vercel.app" },
 ];
 
+function getSupabase() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const prefetchedRef = useRef<Set<string>>(new Set());
 
   async function handleSignOut() {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = getSupabase();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
   }
+
+  const handleSystemClick = useCallback(async (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
+    const supabase = getSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const handoffUrl = `${href}/api/auth/handoff?access_token=${session.access_token}&refresh_token=${session.refresh_token}&next=/`;
+      window.open(handoffUrl, "_blank", "noopener,noreferrer");
+    } else {
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+  }, []);
+
+  const handleSystemHover = useCallback((href: string) => {
+    if (prefetchedRef.current.has(href)) return;
+    prefetchedRef.current.add(href);
+    const link = document.createElement("link");
+    link.rel = "prefetch";
+    link.href = href;
+    link.as = "document";
+    document.head.appendChild(link);
+  }, []);
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -75,8 +103,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <a
                   key={link.label}
                   href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={(e) => handleSystemClick(e, link.href)}
+                  onMouseEnter={() => handleSystemHover(link.href)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-white/30 flex-shrink-0" />
