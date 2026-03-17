@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { trackClaudeCall } from '@/lib/services/cost-logger';
 
 const COMPETITORS = [
   'Deloitte', 'McKinsey & Company', 'PwC', 'EY', 'Accenture', 'KPMG', 'BCG',
@@ -111,14 +112,19 @@ export async function POST(request: NextRequest) {
   // Extract structured job data with Claude Haiku
   const anthropic = new Anthropic();
   const combinedResults = results.map(r => `## ${r.competitor}\n${r.content}`).join('\n\n');
+  const jobsModel = 'claude-haiku-4-5-20251001';
 
   let jobs: { competitor: string; title: string; location: string; department: string; seniority: string; skills: string[] }[] = [];
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      system: `Extract structured job posting data from the search results. Return a JSON array where each object has:
+    const response = await trackClaudeCall(
+      'intelligence-dashboard',
+      'extract-jobs',
+      jobsModel,
+      () => anthropic.messages.create({
+        model: jobsModel,
+        max_tokens: 2048,
+        system: `Extract structured job posting data from the search results. Return a JSON array where each object has:
 - competitor: company name (exactly as provided)
 - title: job title
 - location: city/state or "Remote"
@@ -127,11 +133,12 @@ export async function POST(request: NextRequest) {
 - skills: array of 2-5 relevant skill keywords
 
 Only include jobs clearly related to OD, change management, leadership, human capital, or workforce transformation. Return ONLY the JSON array.`,
-      messages: [{
-        role: 'user',
-        content: `Extract job postings from these search results:\n\n${combinedResults}`,
-      }],
-    });
+        messages: [{
+          role: 'user',
+          content: `Extract job postings from these search results:\n\n${combinedResults}`,
+        }],
+      }),
+    );
 
     const text = response.content
       .filter(b => b.type === 'text')

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { trackClaudeCall } from '@/lib/services/cost-logger';
 
 // RSS feeds for competitors with available feeds
 const COMPETITOR_FEEDS: Record<string, string[]> = {
@@ -169,12 +170,17 @@ export async function POST(request: NextRequest) {
   )).join('\n\n');
 
   let classified: { index: number; type: string; significance: string; summary: string; relevance: number }[] = [];
+  const newsModel = 'claude-haiku-4-5-20251001';
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      system: `You are a competitive intelligence analyst for an OD consulting firm. Classify news items by their relevance to organizational development, leadership, change management, and federal consulting.
+    const response = await trackClaudeCall(
+      'intelligence-dashboard',
+      'classify-news',
+      newsModel,
+      () => anthropic.messages.create({
+        model: newsModel,
+        max_tokens: 2048,
+        system: `You are a competitive intelligence analyst for an OD consulting firm. Classify news items by their relevance to organizational development, leadership, change management, and federal consulting.
 
 For each item, return a JSON array with objects containing:
 - index: the item number
@@ -184,11 +190,12 @@ For each item, return a JSON array with objects containing:
 - relevance: 0-100 score for OD/leadership relevance
 
 Only include items with relevance >= 40. Return ONLY the JSON array, no other text.`,
-      messages: [{
-        role: 'user',
-        content: `Classify these competitor news items:\n\n${itemSummaries}`,
-      }],
-    });
+        messages: [{
+          role: 'user',
+          content: `Classify these competitor news items:\n\n${itemSummaries}`,
+        }],
+      }),
+    );
 
     const text = response.content
       .filter(b => b.type === 'text')

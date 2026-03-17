@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { trackClaudeCall } from '@/lib/services/cost-logger';
 
 const SYSTEM_PROMPT = `You are a strategic intelligence analyst for Hatching Solutions, a veteran-owned OD consulting firm specializing in organizational development, strategic leadership, and change management for Federal/Defense and Corporate clients.
 
@@ -85,12 +86,18 @@ ${(intel || []).slice(0, 10).map(i => `- [${(i.competitors as { name: string })?
 
   try {
     const client = new Anthropic();
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6-20250514',
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: `Generate today's intelligence brief based on this data:\n${dataSummary}` }],
-    });
+    const briefModel = 'claude-sonnet-4-6-20250514';
+    const response = await trackClaudeCall(
+      'intelligence-dashboard',
+      'generate-brief',
+      briefModel,
+      () => client.messages.create({
+        model: briefModel,
+        max_tokens: 2048,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: `Generate today's intelligence brief based on this data:\n${dataSummary}` }],
+      }),
+    );
 
     const fullText = response.content
       .filter(b => b.type === 'text')
