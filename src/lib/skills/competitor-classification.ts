@@ -133,14 +133,35 @@ async function classifyBatch(
       competitor: string;
     }> = JSON.parse(cleaned);
 
-    return parsed.map((p) => ({
-      intelType: validateIntelType(p.intelType),
-      significance: validateSignificance(p.significance),
-      odRelevanceScore: p.intelType === 'irrelevant' ? 0 : Math.min(10, Math.max(0, p.odRelevanceScore ?? 0)),
-      summary: p.summary || '',
-      tags: Array.isArray(p.tags) ? p.tags : [],
-      competitor: p.competitor || 'unknown',
-    }));
+    // Map results back by index to ensure correct alignment with input
+    const resultMap = new Map<number, typeof parsed[number]>();
+    for (const p of parsed) {
+      resultMap.set(p.index, p);
+    }
+
+    return batch.map((_, i) => {
+      const p = resultMap.get(startIndex + i);
+      if (!p) {
+        // Claude skipped this item — return irrelevant
+        return {
+          intelType: 'irrelevant' as IntelType,
+          significance: 'low' as Significance,
+          odRelevanceScore: 0,
+          summary: 'Not classified — skipped by model.',
+          tags: [],
+          competitor: 'unknown',
+        };
+      }
+      const validatedType = validateIntelType(p.intelType);
+      return {
+        intelType: validatedType,
+        significance: validateSignificance(p.significance),
+        odRelevanceScore: validatedType === 'irrelevant' ? 0 : Math.min(10, Math.max(0, p.odRelevanceScore ?? 0)),
+        summary: p.summary || '',
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        competitor: p.competitor || 'unknown',
+      };
+    });
   } catch (err) {
     console.error('[competitor-classification] Batch classification failed:', err);
     // Return irrelevant for all items in the failed batch rather than crashing

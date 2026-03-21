@@ -17,7 +17,7 @@ const SYSTEM_NAME = 'intelligence-dashboard';
 
 /**
  * Model pricing per million tokens (USD).
- * Source: Anthropic, Voyage AI, Perplexity pricing pages.
+ * Source: Anthropic, OpenAI, Perplexity pricing pages.
  * Last verified: 2026-03-21.
  */
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {

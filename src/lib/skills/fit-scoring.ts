@@ -85,8 +85,11 @@ export function calculateFitScore(opportunity: OpportunityInput): FitScoreResult
     setAsideScore = 0;
   }
 
-  // 3. Keyword Relevance (25 pts — 1 per match)
-  const keywordMatches = KEYWORDS.filter((kw) => text.includes(kw));
+  // 3. Keyword Relevance (25 pts — 1 per match, word-boundary aware)
+  const keywordMatches = KEYWORDS.filter((kw) => {
+    const pattern = new RegExp(`\\b${kw.replace(/[&]/g, '\\$&')}\\b`, 'i');
+    return pattern.test(text);
+  });
   const keywordScore = Math.min(keywordMatches.length, 25);
 
   // 4. Contract Value Fit (10 pts)

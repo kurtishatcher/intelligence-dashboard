@@ -81,7 +81,9 @@ export async function evaluateQuality(input: QualityGateInput): Promise<QualityG
   const { content, documentType, context } = input;
   const rubric = RUBRICS[documentType];
 
-  const prompt = `You are a federal consulting quality reviewer. Evaluate the following ${documentType} against the federal quality gate rubric.
+  const systemPrompt = 'You are a federal consulting quality reviewer for Hatching Solutions. Evaluate documents against rubrics with precision. Return only valid JSON.';
+
+  const prompt = `Evaluate the following ${documentType} against the federal quality gate rubric.
 
 ${rubric}
 
@@ -128,6 +130,7 @@ Return ONLY valid JSON matching this schema:
       () => client.messages.create({
         model,
         max_tokens: 2048,
+        system: systemPrompt,
         messages: [{ role: 'user', content: prompt }],
       }),
     );
@@ -144,8 +147,15 @@ Return ONLY valid JSON matching this schema:
       grade,
       score,
       readyForDelivery: grade === 'A' || grade === 'B',
-      issues: Array.isArray(parsed.issues) ? parsed.issues : [],
-      recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+      issues: (Array.isArray(parsed.issues) ? parsed.issues : [])
+        .filter((i: Record<string, unknown>) => i.category && i.severity && i.description)
+        .map((i: Record<string, unknown>) => ({
+          category: String(i.category),
+          severity: ['critical', 'major', 'minor'].includes(String(i.severity)) ? String(i.severity) as 'critical' | 'major' | 'minor' : 'minor',
+          description: String(i.description),
+          location: String(i.location || 'N/A'),
+        })),
+      recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations.map(String) : [],
     };
   } catch (err) {
     console.error('[federal-quality-gate] Evaluation failed:', err);
@@ -154,7 +164,7 @@ Return ONLY valid JSON matching this schema:
       grade: 'C',
       score: 60,
       readyForDelivery: false,
-      issues: [{ category: 'system', severity: 'critical', description: `Quality gate evaluation failed: ${err}`, location: 'N/A' }],
+      issues: [{ category: 'system', severity: 'critical' as const, description: 'Quality gate evaluation failed — manual review required.', location: 'N/A' }],
       recommendations: ['Quality gate could not evaluate — manual review required.'],
     };
   }

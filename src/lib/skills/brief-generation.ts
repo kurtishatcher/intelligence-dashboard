@@ -9,8 +9,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { trackClaudeCall } from '@/lib/skills/cost-tracking';
-import * as fs from 'fs';
-import * as path from 'path';
 
 // --- Types ---
 
@@ -55,43 +53,40 @@ export interface BriefResult {
   error?: string;
 }
 
-// --- Theme memory file ---
+// --- Theme memory (Supabase-backed, not filesystem) ---
 
-const THEMES_FILE = path.join(process.cwd(), 'id_brief_themes.md');
-
-function readPreviousThemes(): string[] {
+async function readPreviousThemes(): Promise<string[]> {
   try {
-    if (!fs.existsSync(THEMES_FILE)) {
-      fs.writeFileSync(THEMES_FILE, '# Intelligence Brief Themes\n\n');
-      return [];
-    }
-    const content = fs.readFileSync(THEMES_FILE, 'utf-8');
-    // Extract themes from last 3 entries (each line starting with "- ")
-    const themeLines = content.split('\n').filter((l) => l.startsWith('- '));
-    return themeLines.slice(-9); // Last 3 entries × ~3 themes each
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from('intelligence_briefs')
+      .select('themes')
+      .not('themes', 'is', null)
+      .order('brief_date', { ascending: false })
+      .limit(3);
+
+    if (!data) return [];
+    return data.flatMap((row) => row.themes || []);
   } catch {
     return [];
   }
 }
+// Themes are written to intelligence_briefs by the route handler during upsert — no separate write needed here.
 
-function writeThemes(briefDate: string, themes: string[]): void {
-  try {
-    const entry = `\n## ${briefDate}\n${themes.map((t) => `- ${t}`).join('\n')}\n`;
-    fs.appendFileSync(THEMES_FILE, entry);
-  } catch {
-    console.error('[brief-generation] Failed to write themes to', THEMES_FILE);
-  }
-}
+// --- System prompt (role + context — sent via API system parameter) ---
 
-// --- Brief section structure prompt ---
-
-const BRIEF_PROMPT_TEMPLATE = `You are an executive intelligence analyst for Hatching Solutions, a veteran-owned federal OD consulting firm (SDVOSB). Generate an executive intelligence brief from the data provided.
+const BRIEF_SYSTEM_PROMPT = `You are an executive intelligence analyst for Hatching Solutions, a veteran-owned federal OD consulting firm (SDVOSB).
 
 Context:
 - Firm focus: organizational development, change management, leadership development for federal clients
 - Primary target: DCSA (Defense Counterintelligence and Security Agency) and adjacent DoD/civilian agencies
 - Set-aside eligibility: SDVOSB, small business
-- Recent brief themes (avoid repeating): [PREVIOUS_THEMES]
+- Output standard: a senior leader must be able to act on this brief immediately
+- Voice: specific, evidence-based, BLUF first in every section — use agency names, NAICS codes, dollar values, and deadlines`;
+
+// --- User prompt template (data + structure instructions) ---
+
+const BRIEF_USER_TEMPLATE = `Generate an executive intelligence brief from this data. Avoid repeating these recent themes: [PREVIOUS_THEMES]
 
 Data provided:
 Opportunities (fit score ≥ 50): [OPPORTUNITIES_DATA]
@@ -122,8 +117,6 @@ Follow this section structure exactly:
 ## Appendix: All Scored Opportunities
 [All opportunities with fitScore >= 40, including Monitor tier]
 
-Be specific — use agency names, NAICS codes, dollar values, and deadlines. Bottom line first in every section. Executive briefing standard: a senior leader must be able to act on this brief immediately.
-
 After the brief, on a new line output ---STRUCTURED--- followed by a JSON object:
 {
   "highlights": [{"title": "...", "finding": "...", "priority": "high|medium|low"}],
@@ -152,13 +145,20 @@ export async function generateBrief(input: BriefInput): Promise<BriefResult> {
     };
   }
 
-  // Step 3: Read previous themes
-  const previousThemes = readPreviousThemes();
+  // Step 3: Read previous themes from last 3 briefs in Supabase
+  const previousThemes = await readPreviousThemes();
 
   // Step 4: Build prompt data
+  const allScoredOpps = [...qualifiedOpps, ...monitorOpps]
+    .sort((a, b) => (b.fit_score ?? 0) - (a.fit_score ?? 0));
+
   const oppsData = qualifiedOpps
     .sort((a, b) => (b.fit_score ?? 0) - (a.fit_score ?? 0))
     .map((o) => `${o.agency} | ${o.title} | ${o.naics_code} | $${((o.estimated_value ?? 0) / 1e6).toFixed(1)}M | ${o.response_deadline || 'TBD'} | ${o.fit_score} | ${o.set_aside || 'None'}`)
+    .join('\n');
+
+  const appendixData = allScoredOpps
+    .map((o) => `${o.agency} | ${o.title} | ${o.naics_code} | $${((o.estimated_value ?? 0) / 1e6).toFixed(1)}M | ${o.response_deadline || 'TBD'} | ${o.fit_score} | ${o.pursuit_recommendation || 'N/A'}`)
     .join('\n');
 
   const awardsData = input.awards
@@ -169,12 +169,13 @@ export async function generateBrief(input: BriefInput): Promise<BriefResult> {
     .map((i) => `[${i.type}] ${i.competitor_name || 'Unknown'}: ${i.title} (${i.significance}) — ${i.summary || ''}`)
     .join('\n');
 
-  const prompt = BRIEF_PROMPT_TEMPLATE
+  const userPrompt = BRIEF_USER_TEMPLATE
     .replace('[PREVIOUS_THEMES]', previousThemes.join(', ') || 'None (first brief)')
     .replace('[OPPORTUNITIES_DATA]', oppsData || 'None')
     .replace('[AWARDS_DATA]', awardsData || 'None')
     .replace('[COMPETITOR_DATA]', intelData || 'None')
-    .replace('[DATE]', input.briefDate);
+    .replace('[DATE]', input.briefDate)
+    + `\n\nAppendix data (all opportunities fitScore >= 40):\n${appendixData || 'None'}`;
 
   // Step 5: Generate with Sonnet 4.6
   try {
@@ -188,7 +189,8 @@ export async function generateBrief(input: BriefInput): Promise<BriefResult> {
       () => client.messages.create({
         model,
         max_tokens: 4096,
-        messages: [{ role: 'user', content: prompt }],
+        system: BRIEF_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userPrompt }],
       }),
     );
 
@@ -228,10 +230,7 @@ export async function generateBrief(input: BriefInput): Promise<BriefResult> {
     // TODO: Wire federal-quality-gate skill here when Priority 16 is implemented.
     // If gate returns readyForDelivery: false, hold the brief and surface the issue.
 
-    // Step 8: Write themes to memory
-    if (themes.length > 0) {
-      writeThemes(input.briefDate, themes);
-    }
+    // Step 8: Themes are persisted by the route handler during intelligence_briefs upsert
 
     return {
       status: 'generated',
