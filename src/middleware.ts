@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/api/cron/")) return NextResponse.next();
   if (pathname.startsWith("/api/collectors/")) return NextResponse.next();
   if (pathname.startsWith("/api/brief/")) return NextResponse.next();
+  if (pathname.startsWith("/api/health")) return NextResponse.next();
 
   // Check Supabase session for everything else (pages + API routes)
   let response = NextResponse.next({ request });

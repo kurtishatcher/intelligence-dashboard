@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { trackClaudeCall } from '@/lib/services/cost-logger';
+import { trackClaudeCall } from '@/lib/skills/cost-tracking';
 
 const COMPETITORS = [
   'Deloitte', 'McKinsey & Company', 'PwC', 'EY', 'Accenture', 'KPMG', 'BCG',

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { trackClaudeCall } from '@/lib/services/cost-logger';
+import { classifyItems, type ClassificationInput } from '@/lib/skills/competitor-classification';
 
 // RSS feeds for competitors with available feeds
 const COMPETITOR_FEEDS: Record<string, string[]> = {
@@ -163,72 +162,36 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Classify with Claude Haiku in a single batch call
-  const anthropic = new Anthropic();
-  const itemSummaries = newItems.slice(0, 30).map((item, i) => (
-    `[${i}] Competitor: ${item.competitor}\nTitle: ${item.title}\nDescription: ${item.description}`
-  )).join('\n\n');
+  // Classify with competitor-classification skill (batches of 10, Haiku 4.5)
+  const classificationInput: ClassificationInput[] = newItems.slice(0, 30).map((item) => ({
+    title: item.title,
+    description: item.description,
+    source: item.competitor,
+    url: item.link,
+    publishedAt: item.pubDate || new Date().toISOString(),
+    contentType: 'news_article' as const,
+  }));
 
-  let classified: { index: number; type: string; significance: string; summary: string; relevance: number }[] = [];
-  const newsModel = 'claude-haiku-4-5-20251001';
+  const classified = await classifyItems(classificationInput);
 
-  try {
-    const response = await trackClaudeCall(
-      'intelligence-dashboard',
-      'classify-news',
-      newsModel,
-      () => anthropic.messages.create({
-        model: newsModel,
-        max_tokens: 2048,
-        system: `You are a competitive intelligence analyst for an OD consulting firm. Classify news items by their relevance to organizational development, leadership, change management, and federal consulting.
-
-For each item, return a JSON array with objects containing:
-- index: the item number
-- type: one of "revenue", "pivot", "thought_leadership", "framework", "offering"
-- significance: one of "low", "medium", "high", "critical"
-- summary: 1-2 sentence summary focused on OD implications
-- relevance: 0-100 score for OD/leadership relevance
-
-Only include items with relevance >= 40. Return ONLY the JSON array, no other text.`,
-        messages: [{
-          role: 'user',
-          content: `Classify these competitor news items:\n\n${itemSummaries}`,
-        }],
-      }),
-    );
-
-    const text = response.content
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join('');
-
-    const cleaned = text.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
-    classified = JSON.parse(cleaned);
-  } catch (err) {
-    return NextResponse.json({
-      collector: 'news-rss',
-      status: 'error',
-      fetched: allItems.length,
-      error: `Classification failed: ${err}`,
-      errors: fetchErrors,
-    });
-  }
-
-  // Insert classified items
+  // Insert classified items (including irrelevant for audit trail)
   let inserted = 0;
-  for (const item of classified) {
-    const source = newItems[item.index];
+  for (let i = 0; i < classified.length; i++) {
+    const result = classified[i];
+    const source = newItems[i];
     if (!source) continue;
-    const competitorId = competitorMap.get(source.competitor);
+
+    // Try to resolve competitor from classification result, fall back to RSS source
+    const competitorId = competitorMap.get(result.competitor) || competitorMap.get(source.competitor);
     if (!competitorId) continue;
 
     const { error } = await supabase.from('competitor_intel').insert({
       competitor_id: competitorId,
-      type: item.type,
+      type: result.intelType,
       title: source.title,
-      summary: item.summary,
+      summary: result.summary,
       source_url: source.link,
-      significance: item.significance,
+      significance: result.significance,
       published_at: source.pubDate ? new Date(source.pubDate).toISOString() : new Date().toISOString(),
     });
 

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { calculateFitScore } from '@/lib/skills/fit-scoring';
 
 // SAM.gov API Collector
 // Endpoint: https://api.sam.gov/opportunities/v2/search
@@ -10,9 +11,6 @@ const SAM_API_BASE = 'https://api.sam.gov/opportunities/v2/search';
 
 // NAICS codes relevant to OD/Leadership/Change Management
 const RELEVANT_NAICS = ['541611', '541612', '541618', '611430', '611710'];
-
-// Set-aside codes that benefit veteran-owned/small businesses
-const FAVORABLE_SET_ASIDES = ['SBA', 'SBP', 'SDVOSBC', 'SDVOSBS', 'VSA', 'VSB', '8A', '8AN', 'HZC', 'HZS'];
 
 interface SamSearchParams {
   naics?: string[];
@@ -40,44 +38,6 @@ interface SamOpportunity {
   description: string | null;
   organizationType: string | null;
   pointOfContact?: Array<{ fullName?: string; email?: string }>;
-}
-
-function calculateFitScore(opp: SamOpportunity): number {
-  let score = 50; // Base score
-
-  // NAICS alignment (+20 for primary OD codes, +10 for adjacent)
-  if (opp.naicsCode) {
-    if (['541611', '541612'].includes(opp.naicsCode)) {
-      score += 20; // Core management/HR consulting
-    } else if (['541618', '611430', '611710'].includes(opp.naicsCode)) {
-      score += 10; // Adjacent consulting/training
-    }
-  }
-
-  // Set-aside bonus (+15 for SDVOSB/veteran, +10 for small business)
-  if (opp.typeOfSetAside) {
-    if (['SDVOSBC', 'SDVOSBS', 'VSA', 'VSB'].includes(opp.typeOfSetAside)) {
-      score += 15; // Veteran-owned preference
-    } else if (FAVORABLE_SET_ASIDES.includes(opp.typeOfSetAside)) {
-      score += 10; // Other small business set-asides
-    }
-  }
-
-  // Title keyword relevance (+5 each, max +15)
-  const title = (opp.title || '').toLowerCase();
-  const description = (opp.description || '').toLowerCase();
-  const combined = title + ' ' + description;
-  const keywords = ['organizational development', 'change management', 'leadership', 'training', 'facilitation', 'strategic planning', 'workforce', 'human capital', 'organizational effectiveness', 'knowledge management'];
-  let keywordBonus = 0;
-  for (const kw of keywords) {
-    if (combined.includes(kw)) {
-      keywordBonus += 5;
-      if (keywordBonus >= 15) break;
-    }
-  }
-  score += keywordBonus;
-
-  return Math.min(score, 100);
 }
 
 async function fetchFromSamGov(params: SamSearchParams) {
@@ -146,6 +106,17 @@ async function fetchFromSamGov(params: SamSearchParams) {
 }
 
 function mapToDbRecord(opp: SamOpportunity) {
+  const { fitScore, scoreBreakdown, pursuitRecommendation, flags } = calculateFitScore({
+    naicsCode: opp.naicsCode || '',
+    setAside: opp.typeOfSetAsideDescription || opp.typeOfSetAside || null,
+    title: opp.title || '',
+    description: opp.description || '',
+    awardAmount: opp.award?.amount || null,
+    responseDeadline: opp.responseDeadLine || '',
+    agency: opp.department || '',
+    type: opp.type || 'solicitation',
+  });
+
   return {
     notice_id: opp.noticeId,
     title: opp.title || 'Untitled',
@@ -157,7 +128,10 @@ function mapToDbRecord(opp: SamOpportunity) {
     response_deadline: opp.responseDeadLine || null,
     set_aside: opp.typeOfSetAsideDescription || null,
     type: opp.type || null,
-    fit_score: calculateFitScore(opp),
+    fit_score: fitScore,
+    pursuit_recommendation: pursuitRecommendation,
+    score_breakdown: scoreBreakdown,
+    flags,
     status: 'new' as const,
     source_url: opp.uiLink || null,
     posted_at: opp.postedDate || null,
