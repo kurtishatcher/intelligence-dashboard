@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { checkCircuit, recordSuccess, recordFailure } from '@/lib/utils/circuit-breaker';
 
 // USAspending.gov API Collector
 // Endpoint: https://api.usaspending.gov/api/v2/search/spending_by_award/
@@ -66,16 +67,27 @@ function buildRequestBody(params: UsaSpendingSearchParams, dateRange: { start: s
 }
 
 async function fetchFromUsaSpending(params: UsaSpendingSearchParams) {
+  const allowed = await checkCircuit('usaspending');
+  if (!allowed) {
+    return { success: false, error: 'USAspending circuit breaker is OPEN — request rejected.' };
+  }
+
   // Try current date first; if API returns 500 (future-date issue), fall back to end of last complete year
   const now = new Date();
   const dateRange = buildDateRange(params, now);
   const requestBody = buildRequestBody(params, dateRange);
 
-  const response = await fetch(`${USASPENDING_API_BASE}/search/spending_by_award/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${USASPENDING_API_BASE}/search/spending_by_award/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+  } catch (err) {
+    await recordFailure('usaspending');
+    return { success: false, error: `USAspending fetch failed: ${String(err)}` };
+  }
 
   if (response.status === 500 && !params.dateRange) {
     // Retry with end of last complete year as fallback
@@ -83,25 +95,35 @@ async function fetchFromUsaSpending(params: UsaSpendingSearchParams) {
     const fallbackRange = buildDateRange(params, fallbackEnd);
     const fallbackBody = buildRequestBody(params, fallbackRange);
 
-    const retryResponse = await fetch(`${USASPENDING_API_BASE}/search/spending_by_award/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(fallbackBody),
-    });
+    let retryResponse: Response;
+    try {
+      retryResponse = await fetch(`${USASPENDING_API_BASE}/search/spending_by_award/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fallbackBody),
+      });
+    } catch (err) {
+      await recordFailure('usaspending');
+      return { success: false, error: `USAspending fallback fetch failed: ${String(err)}` };
+    }
 
     if (!retryResponse.ok) {
+      await recordFailure('usaspending');
       const errorText = await retryResponse.text();
       return { success: false, error: `USAspending API error (${retryResponse.status}): ${errorText.slice(0, 500)}` };
     }
+    await recordSuccess('usaspending');
     const data = await retryResponse.json();
     return { success: true, data };
   }
 
   if (!response.ok) {
+    await recordFailure('usaspending');
     const errorText = await response.text();
     return { success: false, error: `USAspending API error (${response.status}): ${errorText.slice(0, 500)}` };
   }
 
+  await recordSuccess('usaspending');
   const data = await response.json();
   return { success: true, data };
 }

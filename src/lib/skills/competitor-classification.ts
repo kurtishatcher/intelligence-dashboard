@@ -9,6 +9,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { trackClaudeCall } from '@/lib/skills/cost-tracking';
 import { withRetry, RETRY_CONFIGS } from '@/lib/utils/retry';
+import { checkCircuit, recordSuccess, recordFailure } from '@/lib/utils/circuit-breaker';
 
 // --- Types ---
 
@@ -105,6 +106,19 @@ async function classifyBatch(
     .join('\n\n');
 
   try {
+    const allowed = await checkCircuit('claude-api');
+    if (!allowed) {
+      console.warn('[competitor-classification] Circuit breaker OPEN for claude-api — skipping batch');
+      return batch.map(() => ({
+        intelType: 'irrelevant' as IntelType,
+        significance: 'low' as Significance,
+        odRelevanceScore: 0,
+        summary: 'Classification skipped — Claude API circuit breaker open.',
+        tags: ['circuit-breaker-skip'],
+        competitor: 'unknown',
+      }));
+    }
+
     const anthropic = new Anthropic();
     const response = await withRetry(
       () => trackClaudeCall(
@@ -121,6 +135,8 @@ async function classifyBatch(
       RETRY_CONFIGS.claude,
       'ID:classifyNews',
     );
+
+    await recordSuccess('claude-api');
 
     const text = response.content
       .filter((b) => b.type === 'text')
@@ -168,6 +184,7 @@ async function classifyBatch(
       };
     });
   } catch (err) {
+    await recordFailure('claude-api');
     console.error('[competitor-classification] Batch classification failed:', err);
     // Return irrelevant for all items in the failed batch rather than crashing
     return batch.map(() => ({

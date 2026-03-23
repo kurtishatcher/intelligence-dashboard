@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateFitScore } from '@/lib/skills/fit-scoring';
+import { checkCircuit, recordSuccess, recordFailure } from '@/lib/utils/circuit-breaker';
 
 // SAM.gov API Collector
 // Endpoint: https://api.sam.gov/opportunities/v2/search
@@ -78,6 +79,11 @@ async function fetchFromSamGov(params: SamSearchParams) {
     return { success: false, error: 'SAM.gov API requires one NAICS code per request. Pass a single code.' };
   }
 
+  const allowed = await checkCircuit('sam-gov');
+  if (!allowed) {
+    return { success: false, error: 'SAM.gov circuit breaker is OPEN — request rejected.' };
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   let response: Response;
@@ -88,12 +94,14 @@ async function fetchFromSamGov(params: SamSearchParams) {
     });
   } catch (err) {
     clearTimeout(timeout);
+    await recordFailure('sam-gov');
     const message = err instanceof Error && err.name === 'AbortError' ? 'Request timed out (8s)' : String(err);
     return { success: false, error: `SAM.gov fetch failed: ${message}` };
   }
   clearTimeout(timeout);
 
   if (!response.ok) {
+    await recordFailure('sam-gov');
     const errorText = await response.text();
     return {
       success: false,
@@ -101,6 +109,7 @@ async function fetchFromSamGov(params: SamSearchParams) {
     };
   }
 
+  await recordSuccess('sam-gov');
   const data = await response.json();
   return { success: true, data };
 }

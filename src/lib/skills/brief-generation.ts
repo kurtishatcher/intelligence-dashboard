@@ -10,6 +10,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { trackClaudeCall } from '@/lib/skills/cost-tracking';
 import { withRetry, RETRY_CONFIGS } from '@/lib/utils/retry';
+import { checkCircuit, recordSuccess, recordFailure } from '@/lib/utils/circuit-breaker';
 
 // --- Types ---
 
@@ -180,6 +181,17 @@ export async function generateBrief(input: BriefInput): Promise<BriefResult> {
 
   // Step 5: Generate with Sonnet 4.6
   try {
+    const allowed = await checkCircuit('claude-api');
+    if (!allowed) {
+      return {
+        status: 'error',
+        opportunityCount: qualifiedOpps.length,
+        awardCount: input.awards.length,
+        competitorItemCount: qualifiedIntel.length,
+        error: 'Claude API circuit breaker is OPEN — brief generation skipped.',
+      };
+    }
+
     const client = new Anthropic();
     const model = 'claude-sonnet-4-6';
 
@@ -198,6 +210,8 @@ export async function generateBrief(input: BriefInput): Promise<BriefResult> {
       RETRY_CONFIGS.claude,
       'ID:generateBrief',
     );
+
+    await recordSuccess('claude-api');
 
     const fullText = response.content
       .filter((b) => b.type === 'text')
@@ -247,6 +261,7 @@ export async function generateBrief(input: BriefInput): Promise<BriefResult> {
       competitorItemCount: qualifiedIntel.length,
     };
   } catch (err) {
+    await recordFailure('claude-api');
     // All retries exhausted — write a pending-synthesis record so the UI can trigger manual retry
     try {
       const fallbackSupabase = createAdminClient();

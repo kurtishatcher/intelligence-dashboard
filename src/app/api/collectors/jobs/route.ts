@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { trackClaudeCall } from '@/lib/skills/cost-tracking';
 import { withRetry, RETRY_CONFIGS } from '@/lib/utils/retry';
+import { checkCircuit, recordSuccess, recordFailure } from '@/lib/utils/circuit-breaker';
 
 const COMPETITORS = [
   'Deloitte', 'McKinsey & Company', 'PwC', 'EY', 'Accenture', 'KPMG', 'BCG',
@@ -57,6 +58,16 @@ export async function POST(request: NextRequest) {
   const results: PerplexityResult[] = [];
   const errors: string[] = [];
 
+  // Check Perplexity circuit before starting job searches
+  const perplexityAllowed = await checkCircuit('perplexity');
+  if (!perplexityAllowed) {
+    return NextResponse.json({
+      collector: 'job-postings',
+      status: 'skipped',
+      message: 'Perplexity circuit breaker is OPEN — job collection skipped.',
+    });
+  }
+
   // Process in batches of 3
   for (let i = 0; i < COMPETITORS.length; i += 3) {
     const batch = COMPETITORS.slice(i, i + 3);
@@ -100,11 +111,13 @@ export async function POST(request: NextRequest) {
             RETRY_CONFIGS.perplexity,
             `ID:jobSearch:${competitor}`,
           );
+          await recordSuccess('perplexity');
           const content = data.choices?.[0]?.message?.content || '';
           if (content) {
             results.push({ competitor, content });
           }
         } catch (err) {
+          await recordFailure('perplexity');
           errors.push(`${competitor}: ${err instanceof Error ? err.message : String(err)}`);
         }
       })
@@ -123,6 +136,20 @@ export async function POST(request: NextRequest) {
   }
 
   // Extract structured job data with Claude Haiku
+  const claudeAllowed = await checkCircuit('claude-api');
+  if (!claudeAllowed) {
+    return NextResponse.json({
+      collector: 'job-postings',
+      status: 'partial',
+      message: 'Claude API circuit breaker is OPEN — job extraction skipped. Raw Perplexity results collected.',
+      searched: COMPETITORS.length,
+      results_found: results.length,
+      jobs_extracted: 0,
+      inserted: 0,
+      errors,
+    });
+  }
+
   const anthropic = new Anthropic();
   const combinedResults = results.map(r => `## ${r.competitor}\n${r.content}`).join('\n\n');
   const jobsModel = 'claude-haiku-4-5-20251001';
@@ -164,7 +191,9 @@ Only include jobs clearly related to OD, change management, leadership, human ca
 
     const cleaned = text.replace(/```json?\s*/g, '').replace(/```\s*/g, '').trim();
     jobs = JSON.parse(cleaned);
+    await recordSuccess('claude-api');
   } catch (err) {
+    await recordFailure('claude-api');
     return NextResponse.json({
       collector: 'job-postings',
       status: 'error',

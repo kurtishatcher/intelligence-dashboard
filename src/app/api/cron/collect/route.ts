@@ -1,6 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkDailyBudget } from '@/lib/utils/budget';
+import { checkDailyBudget, initRunBudget } from '@/lib/utils/budget';
 import { emitNotification } from '@/lib/utils/notify';
+import {
+  checkSourceAvailability,
+  resolveDegradationLevel,
+  type DegradationMode,
+} from '@/lib/utils/degradation';
+
+// --- Degradation modes (ordered FULL → UNAVAILABLE) ---
+const ID_DEGRADATION_MODES: DegradationMode[] = [
+  {
+    level: 'FULL',
+    requiredSources: ['claude-api', 'sam-gov', 'usaspending', 'perplexity'],
+    optionalSources: [],
+    outputNote: null,
+    shouldDeliver: true,
+  },
+  {
+    level: 'DEGRADED',
+    requiredSources: ['claude-api', 'sam-gov'],
+    optionalSources: ['usaspending', 'perplexity'],
+    outputNote: 'Some data sources were unavailable. Brief generated with partial data.',
+    shouldDeliver: true,
+  },
+  {
+    level: 'MINIMAL',
+    requiredSources: ['claude-api'],
+    optionalSources: ['sam-gov', 'usaspending', 'perplexity'],
+    outputNote: 'Most data sources unavailable. Brief generated from cached data only.',
+    shouldDeliver: true,
+  },
+  {
+    level: 'UNAVAILABLE',
+    requiredSources: [],
+    optionalSources: ['claude-api', 'sam-gov', 'usaspending', 'perplexity'],
+    outputNote: 'Claude API unavailable — cannot generate brief.',
+    shouldDeliver: false,
+  },
+];
 
 // Cron endpoint: triggers all collectors + brief generation
 // Schedule: biweekly (1st & 15th, configured in vercel.json)
@@ -33,6 +70,39 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
       },
       { status: 429 },
+    );
+  }
+
+  // Phase 4 — Per-run budget initialization
+  const runBudget = initRunBudget();
+
+  // Phase 4 — Degradation check: assess source availability via circuit breakers
+  const sourceAvailability = await checkSourceAvailability([
+    'claude-api', 'sam-gov', 'usaspending', 'perplexity',
+  ]);
+  const degradation = resolveDegradationLevel(ID_DEGRADATION_MODES, sourceAvailability);
+
+  console.info(`[cron/collect] Degradation level: ${degradation.level}`, sourceAvailability);
+
+  if (!degradation.shouldDeliver) {
+    emitNotification({
+      type: 'alert',
+      tier: 'critical',
+      title: `Intelligence Dashboard: ${degradation.level}`,
+      body: degradation.outputNote || 'All critical sources unavailable. Cron run aborted.',
+      source_system: 'intelligence-dashboard',
+    });
+    return NextResponse.json(
+      {
+        cron: 'collect',
+        status: 'unavailable',
+        degradation: degradation.level,
+        sourceAvailability,
+        outputNote: degradation.outputNote,
+        runBudget: { id: runBudget.runId, cap: runBudget.cap },
+        timestamp: new Date().toISOString(),
+      },
+      { status: 503 },
     );
   }
 
@@ -94,8 +164,11 @@ export async function GET(request: NextRequest) {
       schedule: 'biweekly (1st & 15th)',
       timestamp: new Date().toISOString(),
       status: 'no-new-data',
+      degradation: degradation.level,
+      outputNote: degradation.outputNote,
       brief_generated: false,
       new_records: 0,
+      runBudget: { id: runBudget.runId, cap: runBudget.cap },
       phases: {
         data_collection: { sam: results.sam, usaspending: results.usaspending },
         intelligence: { news: results.news, jobs: results.jobs },
@@ -128,8 +201,11 @@ export async function GET(request: NextRequest) {
     schedule: 'biweekly (1st & 15th)',
     timestamp: new Date().toISOString(),
     status: 'completed',
+    degradation: degradation.level,
+    outputNote: degradation.outputNote,
     brief_generated: true,
     new_records: newRecordCount,
+    runBudget: { id: runBudget.runId, cap: runBudget.cap },
     phases: {
       data_collection: { sam: results.sam, usaspending: results.usaspending },
       intelligence: { news: results.news, jobs: results.jobs },
