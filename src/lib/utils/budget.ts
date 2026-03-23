@@ -59,6 +59,7 @@ export async function checkDailyBudget(): Promise<BudgetCheckResult> {
 }
 
 // --- Per-run budget tracking ---
+// Uses a Map keyed by runId so concurrent invocations are isolated.
 
 export interface RunBudget {
   runId: string;
@@ -68,20 +69,19 @@ export interface RunBudget {
   remaining: number;
 }
 
-// Module-level state for the current run
-let currentRunId: string | null = null;
-let currentRunSpent = 0;
+const runBudgets = new Map<string, { cap: number; spent: number }>();
 
 /**
  * Initialize per-run budget tracking. Call at the start of each cron execution.
- * Returns the run ID for reference.
+ * Returns the RunBudget (including the generated runId) for the caller to pass
+ * into recordRunSpend / checkRunBudget.
  */
 export function initRunBudget(): RunBudget {
-  currentRunId = `run-${Date.now()}`;
-  currentRunSpent = 0;
-  console.info(`[budget] Per-run budget initialized: ${currentRunId}, cap=$${PER_RUN_CAP_USD}`);
+  const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  runBudgets.set(runId, { cap: PER_RUN_CAP_USD, spent: 0 });
+  console.info(`[budget] Per-run budget initialized: ${runId}, cap=$${PER_RUN_CAP_USD}`);
   return {
-    runId: currentRunId,
+    runId,
     cap: PER_RUN_CAP_USD,
     spent: 0,
     exceeded: false,
@@ -90,27 +90,30 @@ export function initRunBudget(): RunBudget {
 }
 
 /**
- * Record spend against the current run budget.
- * Returns updated budget state. If no run is active, silently returns a default.
+ * Record spend against a specific run's budget.
+ * Pass the runId from the RunBudget returned by initRunBudget().
+ * Falls back to creating a new run if runId is unknown (backward compat).
  */
-export function recordRunSpend(amountUsd: number): RunBudget {
-  if (!currentRunId) {
-    // No active run — initialize one to be safe
-    initRunBudget();
+export function recordRunSpend(amountUsd: number, runId?: string): RunBudget {
+  // If no runId provided or not found, initialize a new one for backward compat
+  if (!runId || !runBudgets.has(runId)) {
+    const fallback = initRunBudget();
+    runId = fallback.runId;
   }
 
-  currentRunSpent += amountUsd;
-  const exceeded = currentRunSpent >= PER_RUN_CAP_USD;
-  const remaining = Math.max(0, PER_RUN_CAP_USD - currentRunSpent);
+  const budget = runBudgets.get(runId)!;
+  budget.spent += amountUsd;
+  const exceeded = budget.spent >= budget.cap;
+  const remaining = Math.max(0, budget.cap - budget.spent);
 
   if (exceeded) {
-    console.warn(`[budget] Per-run cap exceeded: $${currentRunSpent.toFixed(4)} of $${PER_RUN_CAP_USD} (run: ${currentRunId})`);
+    console.warn(`[budget] Per-run cap exceeded: $${budget.spent.toFixed(4)} of $${budget.cap} (run: ${runId})`);
   }
 
   return {
-    runId: currentRunId!,
-    cap: PER_RUN_CAP_USD,
-    spent: Math.round(currentRunSpent * 1_000_000) / 1_000_000,
+    runId,
+    cap: budget.cap,
+    spent: Math.round(budget.spent * 1_000_000) / 1_000_000,
     exceeded,
     remaining: Math.round(remaining * 1_000_000) / 1_000_000,
   };
@@ -118,14 +121,32 @@ export function recordRunSpend(amountUsd: number): RunBudget {
 
 /**
  * Check current run budget without recording spend.
+ * Pass the runId from the RunBudget returned by initRunBudget().
  */
-export function checkRunBudget(): RunBudget {
-  const remaining = Math.max(0, PER_RUN_CAP_USD - currentRunSpent);
+export function checkRunBudget(runId?: string): RunBudget {
+  if (runId && runBudgets.has(runId)) {
+    const budget = runBudgets.get(runId)!;
+    const remaining = Math.max(0, budget.cap - budget.spent);
+    return {
+      runId,
+      cap: budget.cap,
+      spent: Math.round(budget.spent * 1_000_000) / 1_000_000,
+      exceeded: budget.spent >= budget.cap,
+      remaining: Math.round(remaining * 1_000_000) / 1_000_000,
+    };
+  }
   return {
-    runId: currentRunId || 'no-active-run',
+    runId: runId || 'no-active-run',
     cap: PER_RUN_CAP_USD,
-    spent: Math.round(currentRunSpent * 1_000_000) / 1_000_000,
-    exceeded: currentRunSpent >= PER_RUN_CAP_USD,
-    remaining: Math.round(remaining * 1_000_000) / 1_000_000,
+    spent: 0,
+    exceeded: false,
+    remaining: PER_RUN_CAP_USD,
   };
+}
+
+/**
+ * Clean up a run's budget (call at end of pipeline).
+ */
+export function clearRunBudget(runId: string): void {
+  runBudgets.delete(runId);
 }
