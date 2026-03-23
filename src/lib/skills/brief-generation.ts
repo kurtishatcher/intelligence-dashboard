@@ -9,6 +9,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { trackClaudeCall } from '@/lib/skills/cost-tracking';
+import { withRetry, RETRY_CONFIGS } from '@/lib/utils/retry';
 
 // --- Types ---
 
@@ -182,16 +183,20 @@ export async function generateBrief(input: BriefInput): Promise<BriefResult> {
     const client = new Anthropic();
     const model = 'claude-sonnet-4-6';
 
-    const response = await trackClaudeCall(
-      'intelligence-dashboard',
-      'brief-generation',
-      model,
-      () => client.messages.create({
+    const response = await withRetry(
+      () => trackClaudeCall(
+        'intelligence-dashboard',
+        'brief-generation',
         model,
-        max_tokens: 4096,
-        system: BRIEF_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+        () => client.messages.create({
+          model,
+          max_tokens: 4096,
+          system: BRIEF_SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+      ),
+      RETRY_CONFIGS.claude,
+      'ID:generateBrief',
     );
 
     const fullText = response.content
@@ -242,6 +247,25 @@ export async function generateBrief(input: BriefInput): Promise<BriefResult> {
       competitorItemCount: qualifiedIntel.length,
     };
   } catch (err) {
+    // All retries exhausted — write a pending-synthesis record so the UI can trigger manual retry
+    try {
+      const fallbackSupabase = createAdminClient();
+      await fallbackSupabase.from('intelligence_briefs').upsert(
+        {
+          brief_date: input.briefDate,
+          content: null,
+          highlights: null,
+          themes: null,
+          federal_highlights: null,
+          generated_by: 'pending-synthesis',
+        },
+        { onConflict: 'brief_date' },
+      );
+      console.warn('[brief-generation] All retries exhausted. Wrote pending-synthesis record for', input.briefDate);
+    } catch (fallbackErr) {
+      console.error('[brief-generation] Failed to write pending-synthesis record:', fallbackErr);
+    }
+
     return {
       status: 'error',
       opportunityCount: qualifiedOpps.length,

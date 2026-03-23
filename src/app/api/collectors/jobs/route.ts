@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { trackClaudeCall } from '@/lib/skills/cost-tracking';
+import { withRetry, RETRY_CONFIGS } from '@/lib/utils/retry';
 
 const COMPETITORS = [
   'Deloitte', 'McKinsey & Company', 'PwC', 'EY', 'Accenture', 'KPMG', 'BCG',
@@ -62,31 +63,43 @@ export async function POST(request: NextRequest) {
     await Promise.allSettled(
       batch.map(async (competitor) => {
         try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 12000);
-          const res = await fetch('https://api.perplexity.ai/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${perplexityKey}`,
-              'Content-Type': 'application/json',
-            },
-            signal: controller.signal,
-            body: JSON.stringify({
-              model: 'sonar',
-              messages: [{
-                role: 'user',
-                content: `List current job openings at ${competitor} related to organizational development, change management, leadership development, human capital, or workforce transformation. For each job, provide the title, location, and department. Only include jobs posted in the last 30 days if possible.`,
-              }],
-              max_tokens: 1000,
-            }),
-          });
-          clearTimeout(timer);
+          const data = await withRetry(
+            async () => {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), 12000);
+              try {
+                const res = await fetch('https://api.perplexity.ai/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${perplexityKey}`,
+                    'Content-Type': 'application/json',
+                  },
+                  signal: controller.signal,
+                  body: JSON.stringify({
+                    model: 'sonar',
+                    messages: [{
+                      role: 'user',
+                      content: `List current job openings at ${competitor} related to organizational development, change management, leadership development, human capital, or workforce transformation. For each job, provide the title, location, and department. Only include jobs posted in the last 30 days if possible.`,
+                    }],
+                    max_tokens: 1000,
+                  }),
+                });
+                clearTimeout(timer);
 
-          if (!res.ok) {
-            errors.push(`${competitor}: Perplexity HTTP ${res.status}`);
-            return;
-          }
-          const data = await res.json();
+                if (!res.ok) {
+                  const err = new Error(`Perplexity HTTP ${res.status}`);
+                  (err as Error & { status: number }).status = res.status;
+                  throw err;
+                }
+                return await res.json();
+              } catch (err) {
+                clearTimeout(timer);
+                throw err;
+              }
+            },
+            RETRY_CONFIGS.perplexity,
+            `ID:jobSearch:${competitor}`,
+          );
           const content = data.choices?.[0]?.message?.content || '';
           if (content) {
             results.push({ competitor, content });
@@ -117,14 +130,15 @@ export async function POST(request: NextRequest) {
   let jobs: { competitor: string; title: string; location: string; department: string; seniority: string; skills: string[] }[] = [];
 
   try {
-    const response = await trackClaudeCall(
-      'intelligence-dashboard',
-      'extract-jobs',
-      jobsModel,
-      () => anthropic.messages.create({
-        model: jobsModel,
-        max_tokens: 2048,
-        system: `Extract structured job posting data from the search results. Return a JSON array where each object has:
+    const response = await withRetry(
+      () => trackClaudeCall(
+        'intelligence-dashboard',
+        'extract-jobs',
+        jobsModel,
+        () => anthropic.messages.create({
+          model: jobsModel,
+          max_tokens: 2048,
+          system: `Extract structured job posting data from the search results. Return a JSON array where each object has:
 - competitor: company name (exactly as provided)
 - title: job title
 - location: city/state or "Remote"
@@ -133,11 +147,14 @@ export async function POST(request: NextRequest) {
 - skills: array of 2-5 relevant skill keywords
 
 Only include jobs clearly related to OD, change management, leadership, human capital, or workforce transformation. Return ONLY the JSON array.`,
-        messages: [{
-          role: 'user',
-          content: `Extract job postings from these search results:\n\n${combinedResults}`,
-        }],
-      }),
+          messages: [{
+            role: 'user',
+            content: `Extract job postings from these search results:\n\n${combinedResults}`,
+          }],
+        }),
+      ),
+      RETRY_CONFIGS.claude,
+      'ID:extractJobs',
     );
 
     const text = response.content

@@ -8,6 +8,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { trackClaudeCall } from '@/lib/skills/cost-tracking';
+import { withRetry, RETRY_CONFIGS } from '@/lib/utils/retry';
 
 // --- Types ---
 
@@ -105,16 +106,20 @@ async function classifyBatch(
 
   try {
     const anthropic = new Anthropic();
-    const response = await trackClaudeCall(
-      'intelligence-dashboard',
-      'competitor-classification',
-      MODEL,
-      () => anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 2048,
-        system: CLASSIFICATION_PROMPT,
-        messages: [{ role: 'user', content: `Classify these items:\n\n${itemSummaries}` }],
-      }),
+    const response = await withRetry(
+      () => trackClaudeCall(
+        'intelligence-dashboard',
+        'competitor-classification',
+        MODEL,
+        () => anthropic.messages.create({
+          model: MODEL,
+          max_tokens: 2048,
+          system: CLASSIFICATION_PROMPT,
+          messages: [{ role: 'user', content: `Classify these items:\n\n${itemSummaries}` }],
+        }),
+      ),
+      RETRY_CONFIGS.claude,
+      'ID:classifyNews',
     );
 
     const text = response.content
